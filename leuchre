@@ -3,6 +3,7 @@
 import time
 import logging
 import sys
+import select
 
 from optparse import OptionParser
 from euchred import Euchred
@@ -38,7 +39,7 @@ logger = logging.getLogger('')
 logger.setLevel(logging.DEBUG)
 
 # make a console handler and add it, if quiet isn't enabled
-if ( not options.quiet ):
+if not options.quiet:
     ch = logging.StreamHandler(sys.stdout)
     ch.setFormatter(chfmt)
     logger.addHandler(ch)
@@ -54,16 +55,23 @@ logger.addHandler(fh)
 
 info("This is leuchre")
 
-#if ( options.verbose ): print("verbose")
-#else: print("quiet")
+p1 = Euchred(server="127.0.0.1", port=1234, name="p1")
+p1.status()
 
-game = Euchred()
-game.server = "127.0.0.1"
-game.port   = 1234
-game.status()
+info("joining server %s on port %d",p1.server,p1.port)
+p1.join()
 
-info("joining server %s on port %d",game.server,game.port)
-game.join()
+# now we loop to handle events from the server
+inputs = [ p1.s ]
 
+while inputs:
+    readable, writable, exceptional = select.select(inputs, [], inputs)
+
+    for s in readable:
+        if s is p1.s:
+            info("got data from server for p1")
+            p1.readMessage()
+
+info("sleeping...")
 time.sleep(10000)
 

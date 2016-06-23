@@ -3,6 +3,9 @@
 import socket
 import struct
 import logging
+import sys
+import random
+import string
 
 from logging import warning as warn, log, debug, info, error, critical
 
@@ -91,12 +94,31 @@ class Euchred:
     DROPOFFER=123443
     DEAL=123444
 
+    # these are the trailing bytes, to indicate the end of a message
+    TAIL1=250
+    TAIL2=222
+
 
     ###########################################################################
     #
-    def __init__(self):
+    def __init__(self, **kwargs):
         self.server = "0.0.0.0"
         self.port = 0
+        self.playerhandle = 0
+        self.gamehandle = 0
+        self.team = 0
+
+        # randomize that name!
+        self.name = ''.join(random.SystemRandom().choice(string.ascii_uppercase + string.digits) for _ in range(10))
+
+        # override the defaults if we were passed relevant arguments
+        if 'server' in kwargs:
+            self.server = kwargs['server']
+        if 'port' in kwargs:
+            self.port = kwargs['port']
+        if 'name' in kwargs:
+            self.name = kwargs['name']
+
 
 
     ###########################################################################
@@ -106,6 +128,12 @@ class Euchred:
         info("euchred client status: ")
         info("server: " + self.server)
         info("port  : " + str(self.port))
+        info("")
+        info("Name  : " + str(self.name))
+        info("Player: " + str(self.playerhandle))
+        info("Team  : " + str(self.team))
+        info("Game  : " + str(self.gamehandle))
+        info("")
 
 
     ###########################################################################
@@ -118,8 +146,8 @@ class Euchred:
         self.s.connect((self.server,self.port))
 
         # make and send a join message
-        message = self.joinMessage("foo")
-        self.printMessage(message)
+        message = self.joinMessage(self.name)
+        #self.printMessage(message)
         self.s.send(message)
 
 
@@ -139,13 +167,134 @@ class Euchred:
         # now generate a packed array of bytes for the message using that
         # format string
         message = struct.pack(format,
-            size, self.JOIN, 1, len(name), str.encode(name), 250, 222)
+            size,self.JOIN,1,len(name),str.encode(name),self.TAIL1,self.TAIL2)
 
         # debug the message
         #self.printMessage(message)
 
         # return it
         return(message)
+
+
+    ###########################################################################
+    # this reads a message from the server socket, and processes it
+    #
+    def readMessage(self):
+        # we read  single int from the socket: this should represent the
+        # length of the entire message
+        (size,) = struct.unpack("!i",self.s.recv(4))
+
+        # read the specified number of bytes from the socket
+        bytes = self.s.recv(size)
+        info("len of bytes is " + str(len(bytes)))
+
+        # decode the message identifier
+        (message,) = struct.unpack_from("!i",bytes)
+        info("message ID is: %d" % (message))
+
+        # now we mung out a case switch on the message identifier
+        if ( message == self.JOINACCEPT ):
+            return(self.joinAccept(bytes))
+        elif ( message == self.JOINDENY ):
+            return(self.joinDeny(bytes))
+        elif ( message == self.CHAT ):
+            return(self.chat(bytes))
+        elif ( message == self.STATE ):
+            return(self.state(bytes))
+        else:
+            return(self.badMessage(bytes))
+
+
+    ###########################################################################
+    # This routine parses a JOINACCEPT message
+    #
+    def joinAccept(self, bytes):
+        debug("parsing JOINACCEPT")
+        #self.printMessage(bytes)
+
+        # the format of a JOINACCEPT message is:
+        #   <msg> : <msglen> <JOINACCEPT> <gh> <ph> <team> <tail>
+        # where we've already read the msglen bytes
+        (msg, gh, ph, team, tail1, tail2) = struct.unpack("!iiiiBB",bytes)
+
+        # run some sanity checks
+        if tail1 != self.TAIL1 or tail2 != self.TAIL2:
+            error("bad tail value in joinAccept()")
+            return(False)
+
+        # ok, otherwise we carry on
+        self.gamehandle   = gh
+        self.playerhandle = ph
+        self.team         = team
+
+
+    ###########################################################################
+    # This routine parses a JOINDENY message
+    #
+    def joinDeny(self, bytes):
+        debug("parsing JOINDENY")
+        #self.printMessage(bytes)
+
+        return(True)
+
+
+    ###########################################################################
+    # This routine parses a CHAT message
+    #
+    def chat(self, bytes):
+        debug("parsing CHAT")
+        #self.printMessage(bytes)
+
+        # the format of a CHAT message is:
+        #   <msg> : <msglen> <CHAT> <string> <tail>
+        # where we've already read the msglen bytes
+        # since the only content we have is the string, we slice the leading
+        # <CHAT> (ie. 4 bytes) off the bytes array and pass it to a
+        # specialized string parser
+        chat = self.string(bytes[4:-2])
+
+        # now we peel off the tail and make sure it's sane
+        (tail1,tail2) = struct.unpack("!BB",bytes[-2:])
+
+        # run some sanity checks
+        if tail1 != self.TAIL1 or tail2 != self.TAIL2:
+            error("bad tail value in chat()")
+            return(False)
+
+        # ok, log the chat
+        info("received chat: " + chat)
+
+
+    ###########################################################################
+    # This routine parses a string component of a message: it expects
+    # to be passed a bytes array beginning with the string length
+    #
+    def string(self, bytes):
+        debug("parsing string")
+        #self.printMessage(bytes)
+
+        # the format of a string is:
+        #   <string> : <textlen> <text>
+        (len,) = struct.unpack_from("!i",bytes)
+        info("string len: " + str(len))
+
+        # now parse out the text of the string
+        format = "!"+str(len)+"s"
+        info("format is "+format)
+        (chat,) = struct.unpack_from(format,bytes[4:])
+        #info("chat is: " + chat.decode("utf-8"))
+
+        return(chat.decode("utf-8"))
+
+
+    ###########################################################################
+    # This routine parses a random bad message
+    #
+    def badMessage(self, bytes):
+        debug("parsing bad message")
+        self.printMessage(bytes)
+
+        return(False)
 
 
     ###########################################################################
