@@ -1,0 +1,69 @@
+#!/usr/bin/python3
+
+import time
+import logging
+import sys
+
+from optparse import OptionParser
+from euchred import Euchred
+from logging import warning as warn, log, debug, info, error, critical
+
+
+###########################################################################
+# parse our options
+
+parser = OptionParser()
+parser.add_option("-q", "--quiet",
+                  dest="quiet",
+                  default=False,
+                  action="store_true",
+                  help="don't print anything to stdout")
+(options, args) = parser.parse_args()
+
+
+###########################################################################
+# set up logging
+
+# we have two types of formatters: one for the file (with more detailed
+# timing and message levels) and a more compact one for stdout
+fhfmt = logging.Formatter(
+    fmt="%(asctime)s.%(msecs)03d :: %(levelname)s :: %(message)s",
+    datefmt='%Y-%m-%d %H:%M:%S')
+chfmt = logging.Formatter(
+    fmt="%(asctime)s :: %(message)s",
+    datefmt='%Y-%m-%d %H:%M:%S')
+
+# get the root logger
+logger = logging.getLogger('')
+logger.setLevel(logging.DEBUG)
+
+# make a console handler and add it, if quiet isn't enabled
+if ( not options.quiet ):
+    ch = logging.StreamHandler(sys.stdout)
+    ch.setFormatter(chfmt)
+    logger.addHandler(ch)
+
+# make the logfile handler and add it
+fh = logging.FileHandler("leuchre.log",mode="w+")
+fh.setFormatter(fhfmt)
+logger.addHandler(fh)
+
+
+###########################################################################
+# mainline
+
+info("This is leuchre")
+
+#if ( options.verbose ): print("verbose")
+#else: print("quiet")
+
+game = Euchred()
+game.server = "127.0.0.1"
+game.port   = 1234
+game.status()
+
+info("joining server %s on port %d",game.server,game.port)
+game.join()
+
+time.sleep(10000)
+
