@@ -64,14 +64,18 @@ p1.join()
 # now we loop to handle events from the server
 inputs = [ p1.s ]
 
+# loop while we still have valid inputs (actually, since we never modify
+# the inputs array, we just loop forever)
 while inputs:
     readable, writable, exceptional = select.select(inputs, [], inputs)
 
+    # loop across each readable socket
     for s in readable:
         if s is p1.s:
             info("got data from server for p1")
             p1.readMessage()
 
+# we shouldn't ever get here, but just in case
 info("sleeping...")
 time.sleep(10000)
 

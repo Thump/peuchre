@@ -108,6 +108,13 @@ class Euchred:
         self.gamehandle = 0
         self.team = 0
 
+        # this tracks the data from the most recent state information
+        self.state = {}
+        self.state[0] = {}
+        self.state[1] = {}
+        self.state[2] = {}
+        self.state[3] = {}
+
         # randomize that name!
         self.name = ''.join(random.SystemRandom().choice(string.ascii_uppercase + string.digits) for _ in range(10))
 
@@ -194,13 +201,13 @@ class Euchred:
 
         # now we mung out a case switch on the message identifier
         if ( message == self.JOINACCEPT ):
-            return(self.joinAccept(bytes))
+            return(self.parseJoinAccept(bytes))
         elif ( message == self.JOINDENY ):
-            return(self.joinDeny(bytes))
+            return(self.parseJoinDeny(bytes))
         elif ( message == self.CHAT ):
-            return(self.chat(bytes))
+            return(self.parseChat(bytes))
         elif ( message == self.STATE ):
-            return(self.state(bytes))
+            return(self.parseState(bytes))
         else:
             return(self.badMessage(bytes))
 
@@ -208,7 +215,7 @@ class Euchred:
     ###########################################################################
     # This routine parses a JOINACCEPT message
     #
-    def joinAccept(self, bytes):
+    def parseJoinAccept(self, bytes):
         debug("parsing JOINACCEPT")
         #self.printMessage(bytes)
 
@@ -231,7 +238,7 @@ class Euchred:
     ###########################################################################
     # This routine parses a JOINDENY message
     #
-    def joinDeny(self, bytes):
+    def parseJoinDeny(self, bytes):
         debug("parsing JOINDENY")
         #self.printMessage(bytes)
 
@@ -241,7 +248,7 @@ class Euchred:
     ###########################################################################
     # This routine parses a CHAT message
     #
-    def chat(self, bytes):
+    def parseChat(self, bytes):
         debug("parsing CHAT")
         #self.printMessage(bytes)
 
@@ -251,7 +258,7 @@ class Euchred:
         # since the only content we have is the string, we slice the leading
         # <CHAT> (ie. 4 bytes) off the bytes array and pass it to a
         # specialized string parser
-        chat = self.string(bytes[4:-2])
+        chat = self.parseString(bytes[4:-2])
 
         # now we peel off the tail and make sure it's sane
         (tail1,tail2) = struct.unpack("!BB",bytes[-2:])
@@ -269,7 +276,184 @@ class Euchred:
     # This routine parses a string component of a message: it expects
     # to be passed a bytes array beginning with the string length
     #
-    def string(self, bytes):
+    def parseState(self, bytes):
+        debug("parsing STATE")
+        #self.printMessage(bytes)
+
+        # the format of a state is:
+        #  <msg> : <msglen> <STATE> <statedata> <tail>
+        #    <statedata> : <playersdata> <gamedata> <cards>
+        #      <playersdata> : <p1> <p2> <p3> <p4>
+        #        <pN> : <pstate> <pdata>
+        #          <pstate> : {0|1|2} # unconnected, connected, joined
+        #          <pdata> : if <pstate> == joined
+        #                      <ph> <nmstring> <clstring> <hwstring> <osstring>
+        #                      <cmtstring> <team> <numcards> <creator> <ordered>
+        #                      <lead> <maker> <alone> <defend> <deal> <offer>
+        #                      <passed>
+        #                    else
+        #                      <NULL>
+        #            <NULL> :  # no data
+        #            <team> : {-1|0|1} # no team, team 0, or team 1
+        #            <creator>|<ordered>|<dealer>|<alone>|<defend>|<lead>|<maker>
+        #            <playoffer>|<orderoffer>|<calloffer>|<defendoffer> : <boolean>
+        #      <gamedata> : <ingame> <suspend> <holein> <hole> <trumpset> <trump>
+        #                   <tricks> <score> <options>
+        #        <ingame> : <boolean>
+        #        <hstate> : <0|1|2|3|4> # pregame,hole,trump,defend,play
+        #        <suspend> : <boolean>
+        #        <holein> : <boolean> # true if hole card
+        #        <hole> : <card> # only packed if <holein> true
+        #        <card> : <value> <suit>
+        #          <value> : {2|3|4|5|6|7|8|9|10|11|12|13|14}
+        #          <suit> : {0|1|2|3}
+        #        <trumpset> : <boolean> # true if trump set
+        #        <trump> : <suit> # only packed if <trumpset> true
+        #        <tricks> : <tricks0> <tricks1>
+        #          <tricks0> : # tricks for team 0
+        #          <tricks1> : # tricks for team 1
+        #        <score> : <team0> <team1>
+        #          <team0> : # score of team 0
+        #          <team1> : # score of team 1
+        #        <options> : <alone> <defend> <aloneonorder> <screw>
+        #          <alone>|<defend>|<aloneonorder>|<screw> : <boolean>
+        #      <cards> : <numcards> <card1> .. <cardN>
+        #        <cardN> : <value> <suit>
+
+        # we pass a slice of the bytes array with the <STATE> removed;
+        # parseStatePlayer() will return the parsed length, which we'll
+        # then use to compose further slices to parse the game and cards
+        offset = self.parseStatePlayer(bytes[4:])
+
+        return(True)
+
+
+    ###########################################################################
+    # This routine parses the player data of the <STATE> message
+    #
+    def parseStatePlayer(self, bytes):
+        debug("parsing STATE player")
+        offset = 0
+
+        # The player data looks like this:
+        #   <playersdata> : <p1> <p2> <p3> <p4>
+        #     <pN> : <pstate> <pdata>
+        #       <pstate> : {0|1|2} # unconnected, connected, joined
+        #       <pdata> : if <pstate> == joined
+        #                   <ph> <nmstring> <clstring> <hwstring> <osstring>
+        #                   <cmtstring> <team> <numcards> <creator> <ordered>
+        #                   <lead> <maker> <alone> <defend> <deal> <offer>
+        #                   <passed>
+        #                 else
+        #                   <NULL>
+        #         <NULL> :  # no data
+        #         <team> : {-1|0|1} # no team, team 0, or team 1
+        #         <creator>|<ordered>|<dealer>|<alone>|<defend>|<lead>|<maker>
+        #         <playoffer>|<orderoffer>|<calloffer>|<defendoffer> : <boolean>
+        # 
+
+        # pull player 0 state: 0 is unconnected, 1 is connected, 2 is joined;
+        # if the value is 2, there will be further player data
+        (pstate,) = struct.unpack_from("!i",bytes)
+        self.state[0]['state'] = pstate;
+        info("player 0 state is %d" % pstate)
+        offset = 4 # track the offset into the bytes array
+
+        # if ph is 2, then read the rest of the info
+        if pstate == 2:
+            # get the player handle: not sure why I duped this, since the
+            # handle is implicit in the order, but anyway...
+            (ph,) = struct.unpack_from("!i",bytes[offset:])
+            offset = offset+4
+
+            # get the name
+            self.state[ph]['name'] = self.parseString(bytes[offset:])
+            offset = offset+4+len(self.state[ph]['name'])
+
+            # get the client name
+            self.state[ph]['clientname'] = self.parseString(bytes[offset:])
+            offset = offset+4+len(self.state[ph]['clientname'])
+
+            # get the client hardware
+            self.state[ph]['hardware'] = self.parseString(bytes[offset:])
+            offset = offset+4+len(self.state[ph]['hardware'])
+
+            # get the OS
+            self.state[ph]['os'] = self.parseString(bytes[offset:])
+            offset = offset+4+len(self.state[ph]['os'])
+
+            # get the comment
+            self.state[ph]['comment'] = self.parseString(bytes[offset:])
+            offset = offset+4+len(self.state[ph]['comment'])
+
+            # get the team number
+            (self.state[ph]['team'],) = struct.unpack_from("!i",bytes[offset:])
+            offset = offset+4
+
+            # get the number of cards
+            (self.state[ph]['numcards'],) = struct.unpack_from("!i",bytes[offset:])
+            offset = offset+4
+
+            # get the creator boolean
+            (self.state[ph]['creator'],) = struct.unpack_from("!i",bytes[offset:])
+            offset = offset+4
+
+            # get the ordered boolean
+            (self.state[ph]['ordered'],) = struct.unpack_from("!i",bytes[offset:])
+            offset = offset+4
+
+            # get the dealer boolean
+            (self.state[ph]['dealer'],) = struct.unpack_from("!i",bytes[offset:])
+            offset = offset+4
+
+            # get the alone boolean
+            (self.state[ph]['alone'],) = struct.unpack_from("!i",bytes[offset:])
+            offset = offset+4
+
+            # get the defend boolean
+            (self.state[ph]['defend'],) = struct.unpack_from("!i",bytes[offset:])
+            offset = offset+4
+
+            # get the leader boolean
+            (self.state[ph]['leader'],) = struct.unpack_from("!i",bytes[offset:])
+            offset = offset+4
+
+            # get the maker boolean
+            (self.state[ph]['maker'],) = struct.unpack_from("!i",bytes[offset:])
+            offset = offset+4
+
+            # get the playoffer boolean
+            (self.state[ph]['playoffer'],) = struct.unpack_from("!i",bytes[offset:])
+            offset = offset+4
+
+            # get the orderoffer boolean
+            (self.state[ph]['orderoffer'],) = struct.unpack_from("!i",bytes[offset:])
+            offset = offset+4
+
+            # get the dropoffer boolean
+            (self.state[ph]['dropoffer'],) = struct.unpack_from("!i",bytes[offset:])
+            offset = offset+4
+
+            # get the calloffer boolean
+            (self.state[ph]['calloffer'],) = struct.unpack_from("!i",bytes[offset:])
+            offset = offset+4
+
+            # get the defendoffer boolean
+            (self.state[ph]['defendoffer'],) = struct.unpack_from("!i",bytes[offset:])
+            offset = offset+4
+
+            # get the cardinplay boolean
+            (self.state[ph]['cardinplay'],) = struct.unpack_from("!i",bytes[offset:])
+            offset = offset+4
+
+        return offset
+
+
+    ###########################################################################
+    # This routine parses a string component of a message: it expects
+    # to be passed a bytes array beginning with the string length
+    #
+    def parseString(self, bytes):
         debug("parsing string")
         #self.printMessage(bytes)
 
