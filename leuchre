@@ -7,6 +7,7 @@ import select
 
 from optparse import OptionParser
 from euchred import Euchred
+from card import Card
 from logging import warning as warn, log, debug, info, error, critical
 
 
