@@ -11,93 +11,103 @@ from logging import warning as warn, log, debug, info, error, critical
 from card import Card
 
 class Euchred:
+    # this is the dict that maps message ID to message name: we also generate
+    # a reverse mapping at the end
+    messageId = {
 
-    # sent by the client after connection, as well as the server's replies
-    JOIN=123401
-    JOINDENY=123402
-    JOINACCEPT=123403
+        # sent by the client after connection, as well as the server's replies
+        'JOIN'       : 123401 ,
+        'JOINDENY'   : 123402 ,
+        'JOINACCEPT' : 123403 ,
 
-    # sent by the server to connected clients when the server is quitting */
-    SERVERQUIT=123404
+        # sent by the server to connected clients when the server is quitting */
+        'SERVERQUIT' : 123404 ,
 
-    # sent by the client to the server when the client is quitting */
-    CLIENTQUIT=123405
+        # sent by the client to the server when the client is quitting */
+        'CLIENTQUIT' : 123405 ,
 
-    # sent if the server is full when the client tries to connect */
-    DECLINE=123406
+        # sent if the server is full when the client tries to connect */
+        'DECLINE' : 123406 ,
 
-    # sent by the server when the client is about to be terminated */
-    KICK=123407
+        # sent by the server when the client is about to be terminated */
+        'KICK' : 123407 ,
 
-    # the ID messages, request from client, responses from server */
-    ID=123408
-    IDACCEPT=123409
-    IDDENY=123410
+        # the ID messages, request from client, responses from server */
+        'ID'       : 123408 ,
+        'IDACCEPT' : 123409 ,
+        'IDDENY'   : 123410 ,
 
-    # sent by the client when sending in a chat message, sent by the server
-    # when broadcasting the chat message
-    CHAT=123411
+        # sent by the client when sending in a chat message, sent by the server
+        # when broadcasting the chat message
+        'CHAT' : 123411 ,
 
-    # sent by server to clients after game state change: provides all info
-    # needed by client to enter or resume game
-    STATE=123412
+        # sent by server to clients after game state change: provides all info
+        # needed by client to enter or resume game
+        'STATE' : 123412 ,
 
-    # sent as a request when the creator wants to kick another player */
-    KICKPLAYER=123413
-    KICKDENY=123414
+        # sent as a request when the creator wants to kick another player */
+        'KICKPLAYER' : 123413 ,
+        'KICKDENY'   : 123414 ,
 
-    # sent by a client setting options */
-    OPTIONS=123415
-    OPTIONSDENY=123416
+        # sent by a client setting options */
+        'OPTIONS'     : 123415 ,
+        'OPTIONSDENY' : 123416 ,
 
-    # sent by the creator to start the game */
-    START=123417
-    STARTDENY=123418
+        # sent by the creator to start the game */
+        'START'     : 123417 ,
+        'STARTDENY' : 123418 ,
 
-    # sent by the creator to end or reset the game and sent by the server
-    # to tell the clients the game is ending */
-    END=123419
-    ENDDENY=123420
+        # sent by the creator to end or reset the game and sent by the server
+        # to tell the clients the game is ending */
+        'END'     : 123419 ,
+        'ENDDENY' : 123420 ,
 
-    # sent by client as responses to an order offer */
-    ORDER=123421
-    ORDERALONE=123422
-    ORDERPASS=123423
-    ORDERDENY=123424
+        # sent by client as responses to an order offer */
+        'ORDER'      : 123421 ,
+        'ORDERALONE' : 123422 ,
+        'ORDERPASS'  : 123423 ,
+        'ORDERDENY'  : 123424 ,
 
-    # sent by client to indicate dropped card, and the deny message */
-    DROP=123425
-    DROPDENY=123426
+        # sent by client to indicate dropped card, and the deny message */
+        'DROP'     : 123425 ,
+        'DROPDENY' : 123426 ,
 
-    # sent by client as responses to a call offer */
-    CALL=123427
-    CALLALONE=123428
-    CALLPASS=123429
-    CALLDENY=123430
+        # sent by client as responses to a call offer */
+        'CALL'      : 123427 ,
+        'CALLALONE' : 123428 ,
+        'CALLPASS'  : 123429 ,
+        'CALLDENY'  : 123430 ,
 
-    # sent by client as responses to a defend offer */
-    DEFEND=123431
-    DEFENDPASS=123432
-    DEFENDDENY=123433
+        # sent by client as responses to a defend offer */
+        'DEFEND'     : 123431 ,
+        'DEFENDPASS' : 123432 ,
+        'DEFENDDENY' : 123433 ,
 
-    # sent by client as responses to a play offer */
-    PLAY=123434
-    PLAYDENY=123435
+        # sent by client as responses to a play offer */
+        'PLAY'     : 123434 ,
+        'PLAYDENY' : 123435 ,
 
-    # flag messages sent by server */
-    TRICKOVER=123436
-    HANDOVER=123437
-    GAMEOVER=123438
-    PLAYOFFER=123439
-    DEFENDOFFER=123440
-    CALLOFFER=123441
-    ORDEROFFER=123442
-    DROPOFFER=123443
-    DEAL=123444
+        # flag messages sent by server */
+        'TRICKOVER'   : 123436 ,
+        'HANDOVER'    : 123437 ,
+        'GAMEOVER'    : 123438 ,
+        'PLAYOFFER'   : 123439 ,
+        'DEFENDOFFER' : 123440 ,
+        'CALLOFFER'   : 123441 ,
+        'ORDEROFFER'  : 123442 ,
+        'DROPOFFER'   : 123443 ,
+        'DEAL'        : 123444 ,
 
-    # these are the trailing bytes, to indicate the end of a message
-    TAIL1=250
-    TAIL2=222
+        # these are the trailing bytes, to indicate the end of a message
+        'TAIL1' : 250 ,
+        'TAIL2' : 222 ,
+    }
+
+    # now generate the reverse mapping: thanks stack overflow!
+    #messageName = {v: k for k,v in messageId.items()}
+    messageName = {}
+    for k, v in messageId.items():
+        messageName[v] = k
 
 
     ###########################################################################
@@ -133,14 +143,14 @@ class Euchred:
     #
     def status(self):
         info("")
-        info("euchred client status: ")
-        info("server: " + self.server)
-        info("port  : " + str(self.port))
+        info(self.name + ": euchred client status: ")
+        info(self.name + ": server: " + self.server)
+        info(self.name + ": port  : " + str(self.port))
         info("")
-        info("Name  : " + str(self.name))
-        info("Player: " + str(self.playerhandle))
-        info("Team  : " + str(self.team))
-        info("Game  : " + str(self.gamehandle))
+        info(self.name + ": Name  : " + str(self.name))
+        info(self.name + ": Player: " + str(self.playerhandle))
+        info(self.name + ": Team  : " + str(self.team))
+        info(self.name + ": Game  : " + str(self.gamehandle))
         info("")
 
 
@@ -175,7 +185,14 @@ class Euchred:
         # now generate a packed array of bytes for the message using that
         # format string
         message = struct.pack(format,
-            size,self.JOIN,1,len(name),str.encode(name),self.TAIL1,self.TAIL2)
+            size,
+            self.messageId['JOIN'],
+            1,
+            len(name),
+            str.encode(name),
+            self.messageId['TAIL1'],
+            self.messageId['TAIL2'],
+        )
 
         # debug the message
         #self.printMessage(message)
@@ -194,20 +211,20 @@ class Euchred:
 
         # read the specified number of bytes from the socket
         bytes = self.s.recv(size)
-        info("len of bytes is " + str(len(bytes)))
+        #info(self.name + ": len of bytes is " + str(len(bytes)))
 
         # decode the message identifier
-        (message,) = struct.unpack_from("!i",bytes)
-        info("message ID is: %d" % (message))
+        (id,) = struct.unpack_from("!i",bytes)
+        info(self.name + ": message is: %s (%d)" % (self.messageName[id],id))
 
         # now we mung out a case switch on the message identifier
-        if ( message == self.JOINACCEPT ):
+        if ( id == self.messageId['JOINACCEPT'] ):
             return(self.parseJoinAccept(bytes))
-        elif ( message == self.JOINDENY ):
+        elif ( id == self.messageId['JOINDENY'] ):
             return(self.parseJoinDeny(bytes))
-        elif ( message == self.CHAT ):
+        elif ( id == self.messageId['CHAT'] ):
             return(self.parseChat(bytes))
-        elif ( message == self.STATE ):
+        elif ( id == self.messageId['STATE'] ):
             return(self.parseState(bytes))
         else:
             return(self.badMessage(bytes))
@@ -217,7 +234,7 @@ class Euchred:
     # This routine parses a JOINACCEPT message
     #
     def parseJoinAccept(self, bytes):
-        debug("parsing JOINACCEPT")
+        debug(self.name + ": parsing JOINACCEPT")
         #self.printMessage(bytes)
 
         # the format of a JOINACCEPT message is:
@@ -226,7 +243,7 @@ class Euchred:
         (msg, gh, ph, team, tail1, tail2) = struct.unpack("!iiiiBB",bytes)
 
         # run some sanity checks
-        if tail1 != self.TAIL1 or tail2 != self.TAIL2:
+        if tail1 != self.messageId['TAIL1'] or tail2 != self.messageId['TAIL2']:
             error("bad tail value in joinAccept()")
             return(False)
 
@@ -240,7 +257,7 @@ class Euchred:
     # This routine parses a JOINDENY message
     #
     def parseJoinDeny(self, bytes):
-        debug("parsing JOINDENY")
+        debug(self.name + ": parsing JOINDENY")
         #self.printMessage(bytes)
 
         return(True)
@@ -250,7 +267,7 @@ class Euchred:
     # This routine parses a CHAT message
     #
     def parseChat(self, bytes):
-        debug("parsing CHAT")
+        debug(self.name + ": parsing CHAT")
         #self.printMessage(bytes)
 
         # the format of a CHAT message is:
@@ -265,12 +282,12 @@ class Euchred:
         (tail1,tail2) = struct.unpack("!BB",bytes[-2:])
 
         # run some sanity checks
-        if tail1 != self.TAIL1 or tail2 != self.TAIL2:
+        if tail1 != self.messageId['TAIL1'] or tail2 != self.messageId['TAIL2']:
             error("bad tail value in chat()")
             return(False)
 
         # ok, log the chat
-        info("received chat: " + chat)
+        info(self.name + ": received chat: " + chat)
 
 
     ###########################################################################
@@ -278,7 +295,7 @@ class Euchred:
     # to be passed a bytes array beginning with the string length
     #
     def parseState(self, bytes):
-        debug("parsing STATE")
+        debug(self.name + ": parsing STATE")
         self.printMessage(bytes)
         offset = 0
 
@@ -332,7 +349,7 @@ class Euchred:
         # slice of the bytes array
         offset += self.parseStateGame(bytes[4+offset:])
 
-        info("offset is now %d" % offset)
+        info(self.name + ": offset is now %d" % offset)
 
         # next we parse the cards, which may number 0 if we haven't been
         # dealt any yet
@@ -345,7 +362,7 @@ class Euchred:
     # This routine parses the player data of the <STATE> message
     #
     def parseStatePlayer(self, bytes):
-        debug("parsing player STATE")
+        debug(self.name + ": parsing player STATE")
         offset = 0
 
         info("")
@@ -365,7 +382,7 @@ class Euchred:
     # This reads the N'th player state information
     #
     def parseStatePlayerN(self, bytes, n):
-        debug("parseing STATE for player %d" % (n))
+        debug(self.name + ": parsing STATE for player %d" % (n))
         offset = 0
 
         # The player data looks like this:
@@ -400,7 +417,7 @@ class Euchred:
             # get the name
             self.state[ph]['name'] = self.parseString(bytes[offset:])
             offset += 4+len(self.state[ph]['name'])
-            info("player name is " + self.state[ph]['name'])
+            info(self.name + ": player name is " + self.state[ph]['name'])
 
             # get the client name
             self.state[ph]['clientname'] = self.parseString(bytes[offset:])
@@ -483,7 +500,7 @@ class Euchred:
             offset += 4
 
         else:
-            info("no player for slot %d" % (n))
+            info(self.name + ": no player for slot %d" % (n))
 
         return offset
 
@@ -492,7 +509,7 @@ class Euchred:
     # This routine parses the game data of the <STATE> message
     #
     def parseStateGame(self, bytes):
-        debug("parsing STATE game")
+        debug(self.name + ": parsing STATE game")
         self.printMessage(bytes)
         offset = 0
 
@@ -541,9 +558,9 @@ class Euchred:
 
         # if there is a hole card on offer, read it
         if self.state['holein'] == 1:
-            info("parsing hole cards")
+            info(self.name + ": parsing hole cards")
         else:
-            info("not parsing hole cards")
+            info(self.name + ": not parsing hole cards")
 
         # read whether trump has been set
         (self.state['trumpset'],) = struct.unpack_from("!i",bytes[offset:])
@@ -551,11 +568,11 @@ class Euchred:
 
         # if it has, read the trump suit
         if self.state['trumpset'] == 1:
-            info("parsing trump suit")
+            info(self.name + ": parsing trump suit")
             (self.state['trump'],) = struct.unpack_from("!i",bytes[offset:])
             offset += 4
         else:
-            info("not parsing trump suit")
+            info(self.name + ": not parsing trump suit")
 
         # and set the number of tricks for each team
         (tricks0,tricks1) = struct.unpack_from("!ii",bytes[offset:])
@@ -590,7 +607,7 @@ class Euchred:
         self.state['aloneonorder'],
         self.state['screw'],) = struct.unpack_from("!iii",bytes[offset:])
         offset += 12
-        info("defend: %d  alone: %d  screw: %d" % (self.state['defend'], self.state['aloneonorder'], self.state['screw'],))
+        info(self.name + ": defend: %d  alone: %d  screw: %d" % (self.state['defend'], self.state['aloneonorder'], self.state['screw'],))
         
         return offset
 
@@ -599,7 +616,7 @@ class Euchred:
     # This reads the cards information in the state message
     #
     def parseStateCards(self, bytes):
-        debug("parsing STATE cards")
+        debug(self.name + ": parsing STATE cards")
         self.printMessage(bytes)
         offset = 0
 
@@ -610,13 +627,13 @@ class Euchred:
         # get the number of cards to be read
         (self.state['numcards'],) = struct.unpack_from("!i",bytes)
         offset += 4
-        info("number of cards: %d" % (self.state['numcards']))
+        info(self.name + ": number of cards: %d" % (self.state['numcards']))
 
         # if we have a non-zero number of cards, read them
-        self.cards = set([])
+        self.hand = set([])
         while (range(self.state['numcards'])):
             (value,suit) = struct.unpack_from("!ii",bytes[offset:])
-            self.cards.add(Card(value=value,suit=suit))
+            self.hand.add(Card(value=value,suit=suit))
             offset += 8
 
         return offset
@@ -627,19 +644,19 @@ class Euchred:
     # to be passed a bytes array beginning with the string length
     #
     def parseString(self, bytes):
-        #debug("parsing string")
+        #debug(self.name + ": parsing string")
         #self.printMessage(bytes)
 
         # the format of a string is:
         #   <string> : <textlen> <text>
         (len,) = struct.unpack_from("!i",bytes)
-        #info("string len: " + str(len))
+        #info(self.name + ": string len: " + str(len))
 
         # now parse out the text of the string
         format = "!"+str(len)+"s"
-        #info("format is "+format)
+        #info(self.name + ": format is "+format)
         (chat,) = struct.unpack_from(format,bytes[4:])
-        #info("chat is: " + chat.decode("utf-8"))
+        #info(self.name + ": chat is: " + chat.decode("utf-8"))
 
         return(chat.decode("utf-8"))
 
@@ -648,7 +665,7 @@ class Euchred:
     # This routine parses a random bad message
     #
     def badMessage(self, bytes):
-        debug("parsing bad message")
+        debug(self.name + ": parsing bad message")
         self.printMessage(bytes)
 
         return(False)
