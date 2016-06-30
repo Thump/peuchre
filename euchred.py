@@ -226,6 +226,10 @@ class Euchred:
             return(self.parseChat(bytes))
         elif ( id == self.messageId['STATE'] ):
             return(self.parseState(bytes))
+        elif ( id == self.messageId['DEAL'] ):
+            return(self.parseDeal(bytes))
+        elif ( id == self.messageId['ORDEROFFER'] ):
+            return(self.parseOrderOffer(bytes))
         else:
             return(self.badMessage(bytes))
 
@@ -244,7 +248,7 @@ class Euchred:
 
         # run some sanity checks
         if tail1 != self.messageId['TAIL1'] or tail2 != self.messageId['TAIL2']:
-            error("bad tail value in joinAccept()")
+            error(self.name + ": bad tail value in parseJoinAccept()")
             return(False)
 
         # ok, otherwise we carry on
@@ -283,7 +287,7 @@ class Euchred:
 
         # run some sanity checks
         if tail1 != self.messageId['TAIL1'] or tail2 != self.messageId['TAIL2']:
-            error("bad tail value in chat()")
+            error(self.name + ": bad tail value in parseChat()")
             return(False)
 
         # ok, log the chat
@@ -294,9 +298,31 @@ class Euchred:
     # This routine parses a string component of a message: it expects
     # to be passed a bytes array beginning with the string length
     #
+    def parseString(self, bytes):
+        #debug(self.name + ": parsing string")
+        #self.printMessage(bytes)
+
+        # the format of a string is:
+        #   <string> : <textlen> <text>
+        (len,) = struct.unpack_from("!i",bytes)
+        #info(self.name + ": string len: " + str(len))
+
+        # now parse out the text of the string
+        format = "!"+str(len)+"s"
+        #info(self.name + ": format is "+format)
+        (chat,) = struct.unpack_from(format,bytes[4:])
+        #info(self.name + ": chat is: " + chat.decode("utf-8"))
+
+        return(chat.decode("utf-8"))
+
+
+    ###########################################################################
+    # This routine parses a string component of a message: it expects
+    # to be passed a bytes array beginning with the string length
+    #
     def parseState(self, bytes):
         debug(self.name + ": parsing STATE")
-        self.printMessage(bytes)
+        #self.printMessage(bytes)
         offset = 0
 
         # the format of a state is:
@@ -308,14 +334,17 @@ class Euchred:
         #          <pdata> : if <pstate> == joined
         #                      <ph> <nmstring> <clstring> <hwstring> <osstring>
         #                      <cmtstring> <team> <numcards> <creator> <ordered>
-        #                      <lead> <maker> <alone> <defend> <deal> <offer>
-        #                      <passed>
+        #                      <dealer> <alone> <defend> <leader> <maker>
+        #                      <playoffer> <orderoffer> <dropoffer> <calloffer>
+        #                      <defendoffer> <cardinplay> [<card>] <passed>
         #                    else
         #                      <NULL>
         #            <NULL> :  # no data
         #            <team> : {-1|0|1} # no team, team 0, or team 1
-        #            <creator>|<ordered>|<dealer>|<alone>|<defend>|<lead>|<maker>
-        #            <playoffer>|<orderoffer>|<calloffer>|<defendoffer> : <boolean>
+        #            <creator>|<ordered>|<dealer>|<alone>|<defend>|<leader>|<maker>
+        #            <playoffer>|<orderoffer>|<dropoffer>|<calloffer>|<defendoffer>
+        #            <cardinplay> <passed>
+        #                   : <boolean>
         #      <gamedata> : <ingame> <suspend> <holein> <hole> <trumpset> <trump>
         #                   <tricks> <score> <options>
         #        <ingame> : <boolean>
@@ -334,8 +363,8 @@ class Euchred:
         #        <score> : <team0> <team1>
         #          <team0> : # score of team 0
         #          <team1> : # score of team 1
-        #        <options> : <alone> <defend> <aloneonorder> <screw>
-        #          <alone>|<defend>|<aloneonorder>|<screw> : <boolean>
+        #        <options> : <defend> <aloneonorder> <screw>
+        #          <defend>|<aloneonorder>|<screw> : <boolean>
         #      <cards> : <numcards> <card1> .. <cardN>
         #        <cardN> : <value> <suit>
 
@@ -347,13 +376,19 @@ class Euchred:
         # next we parse the game state, for which we use the offset
         # returned from the parseStatePlayer() routine to build a new
         # slice of the bytes array
+        info("")
         offset += self.parseStateGame(bytes[4+offset:])
-
-        info(self.name + ": offset is now %d" % offset)
 
         # next we parse the cards, which may number 0 if we haven't been
         # dealt any yet
+        info("")
         offset += self.parseStateCards(bytes[4+offset:])
+
+        # check that we have a valid tail
+        (tail1,tail2) = struct.unpack("!BB",bytes[-2:])
+        if tail1 != self.messageId['TAIL1'] or tail2 != self.messageId['TAIL2']:
+            error(self.name + ": bad tail value in parseState()")
+            return(False)
 
         return(True)
 
@@ -373,7 +408,6 @@ class Euchred:
         offset += self.parseStatePlayerN(bytes[offset:],2)
         info("")
         offset += self.parseStatePlayerN(bytes[offset:],3)
-        info("")
 
         return offset
 
@@ -382,7 +416,7 @@ class Euchred:
     # This reads the N'th player state information
     #
     def parseStatePlayerN(self, bytes, n):
-        debug(self.name + ": parsing STATE for player %d" % (n))
+        debug(self.name + ": parsing player STATE for player %d" % (n))
         offset = 0
 
         # The player data looks like this:
@@ -392,15 +426,18 @@ class Euchred:
         #       <pdata> : if <pstate> == joined
         #                   <ph> <nmstring> <clstring> <hwstring> <osstring>
         #                   <cmtstring> <team> <numcards> <creator> <ordered>
-        #                   <lead> <maker> <alone> <defend> <deal> <offer>
-        #                   <passed>
+        #                   <dealer> <alone> <defend> <leader> <maker>
+        #                   <playoffer> <orderoffer> <dropoffer> <calloffer>
+        #                   <defendoffer> <cardinplay> [<card>] <passed>
         #                 else
         #                   <NULL>
         #         <NULL> :  # no data
         #         <team> : {-1|0|1} # no team, team 0, or team 1
-        #         <creator>|<ordered>|<dealer>|<alone>|<defend>|<lead>|<maker>
-        #         <playoffer>|<orderoffer>|<calloffer>|<defendoffer> : <boolean>
-        # 
+        #         <creator>|<ordered>|<dealer>|<alone>|<defend>|<leader>|<maker>
+        #         <playoffer>|<orderoffer>|<dropoffer>|<calloffer>|<defendoffer>
+        #         <cardinplay> <passed>
+        #                : <boolean>
+        #
 
         # pull player 0 state: 0 is unconnected, 1 is connected, 2 is joined;
         # if the value is 2, there will be further player data
@@ -495,6 +532,12 @@ class Euchred:
             (self.state[ph]['cardinplay'],) = struct.unpack_from("!i",bytes[offset:])
             offset += 4
 
+            # if there is a card in play, read it
+            if self.state[ph]['cardinplay'] == 1:
+                (value,suit) = struct.unpack_from("!ii",bytes[offset:])
+                offset += 8
+                self.state[ph]['card'] = Card(value=value,suit=suit)
+
             # get whether they've passed or not
             (self.state[ph]['passed'],) = struct.unpack_from("!i",bytes[offset:])
             offset += 4
@@ -509,8 +552,8 @@ class Euchred:
     # This routine parses the game data of the <STATE> message
     #
     def parseStateGame(self, bytes):
-        debug(self.name + ": parsing STATE game")
-        self.printMessage(bytes)
+        debug(self.name + ": parsing game STATE")
+        #self.printMessage(bytes)
         offset = 0
 
         # The game data looks like this:
@@ -518,7 +561,7 @@ class Euchred:
         #                <trump> <tricks> <score> <options>
         #     <ingame> : <boolean>
         #     <hstate> : <0|1|2|3|4> # pregame,hole,trump,defend,play
-        #     <suspend> : <boolean> 
+        #     <suspend> : <boolean>
         #     <holein> : <boolean> # true if hole card
         #     <hole> : <card> # only packed if <holein> true
         #     <card> : <value> <suit>
@@ -532,8 +575,8 @@ class Euchred:
         #     <score> : <team0> <team1>
         #       <team0> : # score of team 0
         #       <team1> : # score of team 1
-        #     <options> : <alone> <defend> <aloneonorder> <screw>
-        #       <alone>|<defend>|<aloneonorder>|<screw> : <boolean>
+        #     <options> : <defend> <aloneonorder> <screw>
+        #       <defend>|<aloneonorder>|<screw> : <boolean>
 
         # get the ingame boolean
         (self.state['ingame'],) = struct.unpack_from("!i",bytes[offset:])
@@ -558,9 +601,13 @@ class Euchred:
 
         # if there is a hole card on offer, read it
         if self.state['holein'] == 1:
-            info(self.name + ": parsing hole cards")
+            info(self.name + ": parsing hole card")
+            (value,suit) = struct.unpack_from("!ii",bytes[offset:])
+            self.state['hole'] = Card(value=value,suit=suit)
+            info(self.name + ": hole card: " + self.state['hole'])
+            offset += 8
         else:
-            info(self.name + ": not parsing hole cards")
+            info(self.name + ": no hole card to parse")
 
         # read whether trump has been set
         (self.state['trumpset'],) = struct.unpack_from("!i",bytes[offset:])
@@ -572,7 +619,7 @@ class Euchred:
             (self.state['trump'],) = struct.unpack_from("!i",bytes[offset:])
             offset += 4
         else:
-            info(self.name + ": not parsing trump suit")
+            info(self.name + ": no trump suit to parse")
 
         # and set the number of tricks for each team
         (tricks0,tricks1) = struct.unpack_from("!ii",bytes[offset:])
@@ -601,14 +648,10 @@ class Euchred:
             self.state['themscore'] = score0
 
         # and then read a bunch of options
-        #(self.state['alone'],
-        (
-        self.state['defend'],
-        self.state['aloneonorder'],
-        self.state['screw'],) = struct.unpack_from("!iii",bytes[offset:])
+        ( self.state['defend'], self.state['aloneonorder'], self.state['screw'],) \
+            = struct.unpack_from("!iii",bytes[offset:])
         offset += 12
-        info(self.name + ": defend: %d  alone: %d  screw: %d" % (self.state['defend'], self.state['aloneonorder'], self.state['screw'],))
-        
+
         return offset
 
 
@@ -616,8 +659,8 @@ class Euchred:
     # This reads the cards information in the state message
     #
     def parseStateCards(self, bytes):
-        debug(self.name + ": parsing STATE cards")
-        self.printMessage(bytes)
+        debug(self.name + ": parsing cards STATE")
+        #self.printMessage(bytes)
         offset = 0
 
         # The cards data looks like this:
@@ -627,38 +670,60 @@ class Euchred:
         # get the number of cards to be read
         (self.state['numcards'],) = struct.unpack_from("!i",bytes)
         offset += 4
-        info(self.name + ": number of cards: %d" % (self.state['numcards']))
 
         # if we have a non-zero number of cards, read them
         self.hand = set([])
-        while (range(self.state['numcards'])):
+        for i in range(self.state['numcards']):
             (value,suit) = struct.unpack_from("!ii",bytes[offset:])
             self.hand.add(Card(value=value,suit=suit))
             offset += 8
 
+        self.printHand()
         return offset
 
 
     ###########################################################################
-    # This routine parses a string component of a message: it expects
-    # to be passed a bytes array beginning with the string length
+    # This routine parses a DEAL message
     #
-    def parseString(self, bytes):
-        #debug(self.name + ": parsing string")
+    def parseDeal(self, bytes):
+        debug(self.name + ": parsing DEAL")
         #self.printMessage(bytes)
 
-        # the format of a string is:
-        #   <string> : <textlen> <text>
-        (len,) = struct.unpack_from("!i",bytes)
-        #info(self.name + ": string len: " + str(len))
+        # the format of a DEAL message is:
+        #   <msg> : <msglen> <DEAL> <tail>
+        # it's really just a notification message, so check we have a valid
+        # tail and otherwise do nothing
 
-        # now parse out the text of the string
-        format = "!"+str(len)+"s"
-        #info(self.name + ": format is "+format)
-        (chat,) = struct.unpack_from(format,bytes[4:])
-        #info(self.name + ": chat is: " + chat.decode("utf-8"))
+        # check we have a valid tail
+        (tail1, tail2) = struct.unpack("!BB",bytes[-2:])
+        if tail1 != self.messageId['TAIL1'] or tail2 != self.messageId['TAIL2']:
+            error(self.name + ": bad tail value in parseDeal()")
+            return(False)
 
-        return(chat.decode("utf-8"))
+        return(True)
+
+
+    ###########################################################################
+    # This routine parses an ORDEROFFER message
+    #
+    def parseOrderOffer(self, bytes):
+        debug(self.name + ": parsing ORDEROFFER")
+        #self.printMessage(bytes)
+
+        # the format of an ORDEROFFER message is:
+        #   <msg> : <msglen> <ORDEROFFER> <ph> <tail>
+        # it's really just a notification message, unless we're the <ph>
+        (msg, ph) = struct.unpack_from("!ii",bytes)
+        info(self.name + ": order is offered to %s (%d)" %
+            (self.state[ph]['name'],ph))
+
+        # check we have a valid tail
+        (tail1, tail2) = struct.unpack("!BB",bytes[-2:])
+        if tail1 != self.messageId['TAIL1'] or tail2 != self.messageId['TAIL2']:
+            error(self.name + ": bad tail value in parseOrderOffer()")
+            return(False)
+
+        return(True)
 
 
     ###########################################################################
@@ -681,3 +746,14 @@ class Euchred:
         hex_string = "".join("%02x " % b for b in message)
         print("hex: " + hex_string)
         print()
+
+
+    ###########################################################################
+    # this prints out all the cards in our hand
+    #
+    def printHand(self):
+        string = ""
+        for i in self.hand:
+            string += " " + i
+
+        info(self.name + ": hand: " + string)
