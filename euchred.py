@@ -204,7 +204,7 @@ class Euchred:
     ###########################################################################
     # this reads a message from the server socket, and processes it
     #
-    def readMessage(self):
+    def parseMessage(self):
         # we read  single int from the socket: this should represent the
         # length of the entire message
         (size,) = struct.unpack("!i",self.s.recv(4))
@@ -678,7 +678,12 @@ class Euchred:
             self.hand.add(Card(value=value,suit=suit))
             offset += 8
 
-        self.printHand()
+        # if we have a hand, print it
+        if self.state['numcards'] > 0:
+            self.printHand()
+        else:
+            info(self.name + ": no hand yet")
+
         return offset
 
 

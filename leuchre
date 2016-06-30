@@ -57,13 +57,23 @@ logger.addHandler(fh)
 info("This is leuchre")
 
 p1 = Euchred(server="127.0.0.1", port=1234, name="p1")
-p1.status()
-
 info("joining server %s on port %d",p1.server,p1.port)
 p1.join()
 
+p2 = Euchred(server="127.0.0.1", port=1234, name="p2")
+info("joining server %s on port %d",p2.server,p2.port)
+p2.join()
+
+p3 = Euchred(server="127.0.0.1", port=1234, name="p3")
+info("joining server %s on port %d",p3.server,p3.port)
+p3.join()
+
+p4 = Euchred(server="127.0.0.1", port=1234, name="p4")
+info("joining server %s on port %d",p4.server,p4.port)
+p4.join()
+
 # now we loop to handle events from the server
-inputs = [ p1.s ]
+inputs = [ p1.s , p2.s , p3.s , p4.s ]
 
 # loop while we still have valid inputs (actually, since we never modify
 # the inputs array, we just loop forever)
@@ -75,7 +85,23 @@ while inputs:
         if s is p1.s:
             info("")
             info("got data from server for p1")
-            p1.readMessage()
+            p1.parseMessage()
+            p1.status()
+        if s is p2.s:
+            info("")
+            info("got data from server for p2")
+            p2.parseMessage()
+            p2.status()
+        if s is p3.s:
+            info("")
+            info("got data from server for p3")
+            p3.parseMessage()
+            p3.status()
+        if s is p4.s:
+            info("")
+            info("got data from server for p4")
+            p4.parseMessage()
+            p4.status()
 
 # we shouldn't ever get here, but just in case
 info("sleeping...")
