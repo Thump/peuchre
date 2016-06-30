@@ -73,6 +73,7 @@ while inputs:
     # loop across each readable socket
     for s in readable:
         if s is p1.s:
+            info("")
             info("got data from server for p1")
             p1.readMessage()
 
