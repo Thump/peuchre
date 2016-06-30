@@ -143,16 +143,69 @@ class Euchred:
     #
     def status(self):
         info("")
-        info(self.name + ": euchred client status: ")
-        info(self.name + ": server: " + self.server)
-        info(self.name + ": port  : " + str(self.port))
+        info(self.name + ": My Status")
+        info(self.name + ":     server: " + self.server)
+        info(self.name + ":     port  : " + str(self.port))
         info("")
-        info(self.name + ": Name  : " + str(self.name))
-        info(self.name + ": Player: " + str(self.playerhandle))
-        info(self.name + ": Team  : " + str(self.team))
-        info(self.name + ": Game  : " + str(self.gamehandle))
+        info(self.name + ":     Name  : " + str(self.name))
+        info(self.name + ":     Player: " + str(self.playerhandle))
+        info(self.name + ":     Team  : " + str(self.team))
+        info(self.name + ":     Game  : " + str(self.gamehandle))
         info("")
 
+        # if we haven't got any state set yet, skip this section
+        if not 'hstate' in self.state:
+            return
+
+        # otherwise print all our game state
+        info(self.name + ": Game Status:")
+        info(self.name + ":     Score : %d vs %d"
+            % (self.state['usscore'],self.state['themscore']))
+        info(self.name + ":     Tricks: %d vs %d"
+            % (self.state['ustricks'],self.state['themtricks']))
+        info(self.name + ":     Game Started: %d" % (self.state['ingame']))
+        info(self.name + ":     options:")
+        info(self.name + ":         Can Defend Alone:       %d" % (self.state['defend']))
+        info(self.name + ":         Must Go Alone on Order: %d"
+            % (self.state['aloneonorder']))
+        info(self.name + ":         Screw the Dealer:       %d" % (self.state['screw']))
+        info(self.name + ":     Number of cards: %d" % (self.state['numcards']))
+        info(self.name + ":     Trump is Set: %d" % (self.state['trumpset']))
+        if not self.state['holein']:
+            info(self.name + ":     Hole Card: not dealt")
+        else:
+            info(self.name + ":     Hole Card: " + self.state['hole'])
+
+        for i in (0,1,2,3):
+            # skip this player if their state isn't joined
+            if self.state[i]['state'] != 2:
+                continue
+
+            # otherwise print all the info
+            info("")
+            info(self.name + ": Player %d:" % (i))
+            info(self.name + ":     Name: %s" % (self.state[i]['name']))
+            info(self.name + ":     Team: %d" % (self.state[i]['team']))
+            info(self.name + ":     Dealer: %d" % (self.state[i]['dealer']))
+            info(self.name + ":     Ordered: %d" % (self.state[i]['ordered']))
+            info(self.name + ":     Passed: %d" % (self.state[i]['passed']))
+            info(self.name + ":     Made It: %d" % (self.state[i]['maker']))
+            info(self.name + ":     Alone: %d" % (self.state[i]['alone']))
+            info(self.name + ":     Lead: %d" % (self.state[i]['leader']))
+            info(self.name + ":     Creator: %d" % (self.state[i]['creator']))
+            info(self.name + ":     Offers:")
+            info(self.name + ":         Drop: %d" % (self.state[i]['dropoffer']))
+            info(self.name + ":         Order: %d" % (self.state[i]['orderoffer']))
+            info(self.name + ":         Call: %d" % (self.state[i]['calloffer']))
+            info(self.name + ":         Play: %d" % (self.state[i]['playoffer']))
+            info(self.name + ":         Defend: %d" % (self.state[i]['defendoffer']))
+
+            # if the player has a card in play, show it
+            if self.state[i]['cardinplay']:
+                info(self.name + ":     Card Played: " + self.state[i]['card'])
+            else:
+                info(self.name + ":     Card Played: none")
+        
 
     ###########################################################################
     # this routine will connect to the game server
