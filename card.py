@@ -51,7 +51,13 @@ class Card:
 
 
     ###########################################################################
-    #
+    # these operators help automatic string conversions
+    def __add__(self,other):
+        return str(self) + other
+
+    def __radd__(self,other):
+        return other + str(self)
+
     def __str__(self):
         # set the value string
         if self.value < 11:
