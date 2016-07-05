@@ -164,6 +164,7 @@ class Euchred:
         info(self.name + ":     Tricks: %d vs %d"
             % (self.state['ustricks'],self.state['themtricks']))
         info(self.name + ":     Game Started: %d" % (self.state['ingame']))
+        info(self.name + ":     Hand Status : %d" % (self.state['hstate']))
         info(self.name + ":     options:")
         info(self.name + ":         Can Defend Alone:       %d" % (self.state['defend']))
         info(self.name + ":         Must Go Alone on Order: %d"

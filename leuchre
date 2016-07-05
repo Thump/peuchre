@@ -51,8 +51,51 @@ def sendStart():
         info("game: p3 is the creator")
         p3.sendStart()
 
-    # set started to 1 to avoid sending multiple starts
-    started = 1
+
+###########################################################################
+# This will determine who has an order offer, and allow that player to
+# order or pass (by calling the relevant routine for that player).  It uses
+# an array to track ordering, since it's possible that between ordering
+# or passing, we can receive multiple messages, and consequently order or
+# pass multiple times
+#
+def sendOrder():
+    # default player to NUL
+    player = 0
+
+    # figure out the player with the order offer
+    if p0.state[0]['orderoffer'] == 1:
+        player = p0
+        if 0 in ordered and ordered[0] == 1:
+            info("player 0 already ordered, skipping")
+            return
+        ordered[0] = 1
+    if p1.state[1]['orderoffer'] == 1:
+        player = p1
+        if 1 in ordered and ordered[1] == 1:
+            info("player 1 already ordered, skipping")
+            return
+        ordered[1] = 1
+    if p2.state[2]['orderoffer'] == 1:
+        player = p2
+        if 2 in ordered and ordered[2] == 1:
+            info("player 2 already ordered, skipping")
+            return
+        ordered[2] = 1
+    if p3.state[3]['orderoffer'] == 1:
+        player = p3
+        if 3 in ordered and ordered[3] == 1:
+            info("player 3 already ordered, skipping")
+            return
+        ordered[3] = 1
+
+    # if player isn't set, then no player has an order offer, weird
+    if player == 0:
+        info("no player has an order offer")
+        return
+
+    info("player " + player.name + " is ordering")
+
 
 ###########################################################################
 # parse our options
@@ -100,25 +143,24 @@ logger.addHandler(fh)
 # we track whether we've sent a start message or not
 started = 0
 
+# we track whether a player has ordered or not
+ordered = {}
+
 ###########################################################################
 # mainline
 
 info("This is leuchre")
 
 p0 = Euchred(server="127.0.0.1", port=1234, name="p0")
-info("joining server %s on port %d",p0.server,p0.port)
 p0.sendJoin()
 
 p1 = Euchred(server="127.0.0.1", port=1234, name="p1")
-info("joining server %s on port %d",p1.server,p1.port)
 p1.sendJoin()
 
 p2 = Euchred(server="127.0.0.1", port=1234, name="p2")
-info("joining server %s on port %d",p2.server,p2.port)
 p2.sendJoin()
 
 p3 = Euchred(server="127.0.0.1", port=1234, name="p3")
-info("joining server %s on port %d",p3.server,p3.port)
 p3.sendJoin()
 
 # now we loop to handle events from the server
@@ -133,24 +175,25 @@ while inputs:
     for s in readable:
         if s is p0.s:
             info("")
-            info("got data from server for p0")
+            info("game: got data from server for p0")
             p0.parseMessage()
-            p0.status()
         if s is p1.s:
             info("")
-            info("got data from server for p1")
+            info("game: got data from server for p1")
             p1.parseMessage()
-            p1.status()
+            #p1.status()
         if s is p2.s:
             info("")
-            info("got data from server for p2")
+            info("game: got data from server for p2")
             p2.parseMessage()
-            p2.status()
+            #p2.status()
         if s is p3.s:
             info("")
-            info("got data from server for p3")
+            info("game: got data from server for p3")
             p3.parseMessage()
-            p3.status()
+            #p3.status()
+
+    p0.status()
 
     # each time through, we drive game state forward by checking to see
     # the current hand state
@@ -164,11 +207,17 @@ while inputs:
     # for them all, so we check it against player 0, but it would work
     # to check it against any other player too
     if allJoined():
+        # this sends the start message: let the games begin!
         if p0.state['hstate'] == 0 and started != 1:
-            info("game: everyone is joined, sending start")
-
-            # this sends the start message: let the games begin!
+            info("")
+            info("game: everyone is joined, sending start %d" % (started))
             sendStart()
+            started = 1
+
+        # this will drive the game through ordering a card: so long as
+        # players pass, the offer will continue to someone else
+        if p0.state['hstate'] == 1:
+            sendOrder()
     
 
 # we shouldn't ever get here, but just in case
