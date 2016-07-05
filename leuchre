@@ -12,6 +12,49 @@ from logging import warning as warn, log, debug, info, error, critical
 
 
 ###########################################################################
+# This returns true if all 4 players are in joined state, false otherwise
+#
+def allJoined():
+    # default to true
+    state = False
+
+    # if any player has not joined, set to false
+    if     'state' in p0.state[0] and p0.state[0]['state'] == 2 \
+       and 'state' in p0.state[1] and p0.state[1]['state'] == 2 \
+       and 'state' in p0.state[2] and p0.state[2]['state'] == 2 \
+       and 'state' in p0.state[3] and p0.state[3]['state'] == 2:
+        state = True
+
+    return state
+
+
+###########################################################################
+# This sends a start message to begin the game: it figures out who the
+# creator is and sends a message as that person
+#
+def sendStart():
+    # figure out the creator
+    if p0.state[0]['creator'] == 1:
+        # send start message
+        info("game: p0 is the creator")
+        p0.sendStart()
+    if p1.state[1]['creator'] == 1:
+        # send start message
+        info("game: p1 is the creator")
+        p1.sendStart()
+    if p2.state[2]['creator'] == 1:
+        # send start message
+        info("game: p2 is the creator")
+        p2.sendStart()
+    if p3.state[3]['creator'] == 1:
+        # send start message
+        info("game: p3 is the creator")
+        p3.sendStart()
+
+    # set started to 1 to avoid sending multiple starts
+    started = 1
+
+###########################################################################
 # parse our options
 
 parser = OptionParser()
@@ -52,25 +95,31 @@ logger.addHandler(fh)
 
 
 ###########################################################################
+# some other initialization
+
+# we track whether we've sent a start message or not
+started = 0
+
+###########################################################################
 # mainline
 
 info("This is leuchre")
 
 p0 = Euchred(server="127.0.0.1", port=1234, name="p0")
 info("joining server %s on port %d",p0.server,p0.port)
-p0.join()
+p0.sendJoin()
 
 p1 = Euchred(server="127.0.0.1", port=1234, name="p1")
 info("joining server %s on port %d",p1.server,p1.port)
-p1.join()
+p1.sendJoin()
 
 p2 = Euchred(server="127.0.0.1", port=1234, name="p2")
 info("joining server %s on port %d",p2.server,p2.port)
-p2.join()
+p2.sendJoin()
 
 p3 = Euchred(server="127.0.0.1", port=1234, name="p3")
 info("joining server %s on port %d",p3.server,p3.port)
-p3.join()
+p3.sendJoin()
 
 # now we loop to handle events from the server
 inputs = [ p0.s , p1.s , p2.s , p3.s ]
@@ -103,7 +152,25 @@ while inputs:
             p3.parseMessage()
             p3.status()
 
+    # each time through, we drive game state forward by checking to see
+    # the current hand state
+    #  - if pregame (0), and all players joined, send start
+    #  - if hole (1), then someone has an option to order the hole card
+    #  - if trump (2), then someone has an option to call trump
+    #  - if defend (3), then someone has an option to defend alone
+    #  - if play (4), then someone has an option to play
+    # 
+    # the game state is sent to all players, but it should be the same
+    # for them all, so we check it against player 0, but it would work
+    # to check it against any other player too
+    if allJoined():
+        if p0.state['hstate'] == 0 and started != 1:
+            info("game: everyone is joined, sending start")
+
+            # this sends the start message: let the games begin!
+            sendStart()
+    
+
 # we shouldn't ever get here, but just in case
 info("sleeping...")
 time.sleep(10000)
-

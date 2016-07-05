@@ -169,7 +169,8 @@ class Euchred:
         info(self.name + ":         Must Go Alone on Order: %d"
             % (self.state['aloneonorder']))
         info(self.name + ":         Screw the Dealer:       %d" % (self.state['screw']))
-        info(self.name + ":     Number of cards: %d" % (self.state['numcards']))
+        info(self.name + ":     Number of cards: %d (%s)"
+            % (self.state['numcards'], self.printHand()) )
         info(self.name + ":     Trump is Set: %d" % (self.state['trumpset']))
         if not self.state['holein']:
             info(self.name + ":     Hole Card: not dealt")
@@ -205,30 +206,19 @@ class Euchred:
                 info(self.name + ":     Card Played: " + self.state[i]['card'])
             else:
                 info(self.name + ":     Card Played: none")
-        
+
 
     ###########################################################################
     # this routine will connect to the game server
     #
-    def join(self):
+    def sendJoin(self):
         # create the socket for connection to the server: we'll need this
         # for use in the rest of the object
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.s.connect((self.server,self.port))
 
-        # make and send a join message
-        message = self.joinMessage(self.name)
-        #self.printMessage(message)
-        self.s.send(message)
-
-
-    ###########################################################################
-    # this takes a name and returns a byte array for the ecuhre daemon JOIN
-    # message
-    #
-    def joinMessage(self,name):
         # get the length of the name and use that length in the format strign
-        namelen = len(name)
+        namelen = len(self.name)
         format = "!iiii" + str(namelen) + "sBB"
         size = struct.calcsize(format)
         # reduce the size by 4, to leave out the space needed for the
@@ -241,17 +231,43 @@ class Euchred:
             size,
             self.messageId['JOIN'],
             1,
-            len(name),
-            str.encode(name),
+            len(self.name),
+            str.encode(self.name),
             self.messageId['TAIL1'],
             self.messageId['TAIL2'],
         )
 
-        # debug the message
         #self.printMessage(message)
+        self.s.send(message)
 
-        # return it
-        return(message)
+
+    ###########################################################################
+    # this routine will send the start message to the game server
+    #
+    def sendStart(self):
+        # a start message looks like this:
+        #  <msg> : <msglen> <START> <gh> <ph> <tail>
+
+        # prep the format string
+        format = "!iiiiBB"
+        size = struct.calcsize(format)
+        # reduce the size by 4, to leave out the space needed for the
+        # leading size value
+        size = size - 4
+
+        # now generate a packed array of bytes for the message using that
+        # format string
+        message = struct.pack(format,
+            size,
+            self.messageId['START'],
+            self.gamehandle,
+            self.playerhandle,
+            self.messageId['TAIL1'],
+            self.messageId['TAIL2'],
+        )
+
+        #self.printMessage(message)
+        self.s.send(message)
 
 
     ###########################################################################
@@ -283,6 +299,8 @@ class Euchred:
             return(self.parseDeal(bytes))
         elif ( id == self.messageId['ORDEROFFER'] ):
             return(self.parseOrderOffer(bytes))
+        elif ( id == self.messageId['STARTDENY'] ):
+            return(self.parseStartDeny(bytes))
         else:
             return(self.badMessage(bytes))
 
@@ -731,12 +749,6 @@ class Euchred:
             self.hand.add(Card(value=value,suit=suit))
             offset += 8
 
-        # if we have a hand, print it
-        if self.state['numcards'] > 0:
-            self.printHand()
-        else:
-            info(self.name + ": no hand yet")
-
         return offset
 
 
@@ -785,6 +797,26 @@ class Euchred:
 
 
     ###########################################################################
+    # This routine parses a STARTDENY message
+    #
+    def parseStartDeny(self, bytes):
+        debug(self.name + ": parsing STARTDENY")
+        #self.printMessage(bytes)
+
+        # the format of a STARTDENY message is:
+        #   <msg> : <msglen> <STARTDENY> <string> <tail>
+        # where the string explains why it was denied
+        message = self.parseString(bytes[4:-2])
+
+        # check we have a valid tail
+        (tail1, tail2) = struct.unpack("!BB",bytes[-2:])
+        if tail1 != self.messageId['TAIL1'] or tail2 != self.messageId['TAIL2']:
+            error(self.name + ": bad tail value in parseStartDeny()")
+
+        info(self.name + ": uh-oh, got a STARTDENY message: " + message)
+
+
+    ###########################################################################
     # This routine parses a random bad message
     #
     def badMessage(self, bytes):
@@ -811,7 +843,9 @@ class Euchred:
     #
     def printHand(self):
         string = ""
+        sep = ""
         for i in self.hand:
-            string += " " + i
+            string += sep + i
+            sep = " "
 
-        info(self.name + ": hand: " + string)
+        return string
