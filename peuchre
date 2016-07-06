@@ -132,7 +132,7 @@ if not options.quiet:
     logger.addHandler(ch)
 
 # make the logfile handler and add it
-fh = logging.FileHandler("leuchre.log",mode="w+")
+fh = logging.FileHandler("peuchre.log",mode="w+")
 fh.setFormatter(fhfmt)
 logger.addHandler(fh)
 
@@ -149,7 +149,7 @@ ordered = {}
 ###########################################################################
 # mainline
 
-info("This is leuchre")
+info("This is peuchre")
 
 p0 = Euchred(server="127.0.0.1", port=1234, name="p0")
 p0.sendJoin()
