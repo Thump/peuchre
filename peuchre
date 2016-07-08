@@ -6,7 +6,7 @@ import sys
 import select
 
 from optparse import OptionParser
-from euchred import Euchred
+from euchreclient import EuchreClient
 from card import Card
 from logging import warning as warn, log, debug, info, error, critical
 
@@ -59,7 +59,7 @@ def sendStart():
 # or passing, we can receive multiple messages, and consequently order or
 # pass multiple times
 #
-def sendOrder():
+def sendOrderPass():
     # default player to NUL
     player = 0
 
@@ -67,25 +67,25 @@ def sendOrder():
     if p0.state[0]['orderoffer'] == 1:
         player = p0
         if 0 in ordered and ordered[0] == 1:
-            info("player 0 already ordered, skipping")
+            info("player 0 already ordered/passed, skipping")
             return
         ordered[0] = 1
     if p1.state[1]['orderoffer'] == 1:
         player = p1
         if 1 in ordered and ordered[1] == 1:
-            info("player 1 already ordered, skipping")
+            info("player 1 already ordered/passed, skipping")
             return
         ordered[1] = 1
     if p2.state[2]['orderoffer'] == 1:
         player = p2
         if 2 in ordered and ordered[2] == 1:
-            info("player 2 already ordered, skipping")
+            info("player 2 already ordered/passed, skipping")
             return
         ordered[2] = 1
     if p3.state[3]['orderoffer'] == 1:
         player = p3
         if 3 in ordered and ordered[3] == 1:
-            info("player 3 already ordered, skipping")
+            info("player 3 already ordered/passed, skipping")
             return
         ordered[3] = 1
 
@@ -95,6 +95,7 @@ def sendOrder():
         return
 
     info("player " + player.name + " is ordering")
+    player.sendOrderPass()
 
 
 ###########################################################################
@@ -151,16 +152,16 @@ ordered = {}
 
 info("This is peuchre")
 
-p0 = Euchred(server="127.0.0.1", port=1234, name="p0")
+p0 = EuchreClient(server="127.0.0.1", port=1234, name="p0")
 p0.sendJoin()
 
-p1 = Euchred(server="127.0.0.1", port=1234, name="p1")
+p1 = EuchreClient(server="127.0.0.1", port=1234, name="p1")
 p1.sendJoin()
 
-p2 = Euchred(server="127.0.0.1", port=1234, name="p2")
+p2 = EuchreClient(server="127.0.0.1", port=1234, name="p2")
 p2.sendJoin()
 
-p3 = Euchred(server="127.0.0.1", port=1234, name="p3")
+p3 = EuchreClient(server="127.0.0.1", port=1234, name="p3")
 p3.sendJoin()
 
 # now we loop to handle events from the server
@@ -175,25 +176,25 @@ while inputs:
     for s in readable:
         if s is p0.s:
             info("")
-            info("game: got data from server for p0")
+            #info("game: got data from server for p0")
             p0.parseMessage()
         if s is p1.s:
             info("")
-            info("game: got data from server for p1")
+            #info("game: got data from server for p1")
             p1.parseMessage()
             #p1.status()
         if s is p2.s:
             info("")
-            info("game: got data from server for p2")
+            #info("game: got data from server for p2")
             p2.parseMessage()
             #p2.status()
         if s is p3.s:
             info("")
-            info("game: got data from server for p3")
+            #info("game: got data from server for p3")
             p3.parseMessage()
             #p3.status()
 
-    p0.status()
+    #p0.status()
 
     # each time through, we drive game state forward by checking to see
     # the current hand state
@@ -216,8 +217,8 @@ while inputs:
 
         # this will drive the game through ordering a card: so long as
         # players pass, the offer will continue to someone else
-        if p0.state['hstate'] == 1:
-            sendOrder()
+        #if p0.state['hstate'] == 1:
+            #sendOrderPass()
     
 
 # we shouldn't ever get here, but just in case

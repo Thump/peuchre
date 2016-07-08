@@ -1,0 +1,103 @@
+commit 70b79e96411c1dab50e4a9ea8235a7f5a6a6e4bf
+Author: Denis McLaughlin <mclaughlin.denis@gmail.com>
+Date:   Tue Jul 5 21:14:35 2016 -0600
+
+    Renamed leuchre to peuchre, and associate code changes
+
+commit a55c88734728b458f85c18b4c1760eb3ca36b9bb
+Author: Denis McLaughlin <mclaughlin.denis@gmail.com>
+Date:   Mon Jul 4 20:41:25 2016 -0600
+
+    began changes for ordering
+    
+     - added order logic to main line
+
+commit fc8d3fc0eb47d6f9671bdde0ccc48dc1b9aa0f2d
+Author: Denis McLaughlin <mclaughlin.denis@gmail.com>
+Date:   Mon Jul 4 20:00:04 2016 -0600
+
+    changes related to sending the START message
+    
+     - changed euchred.py join() to sendJoin()
+     - merged joinMessage() into sendJoin()
+     - created sendStart() to send a start message and associated logic
+     - changed printHand() to return the hand string
+
+commit 9229810db84f84bbeab6e8c26ea884cac855feed
+Author: Denis McLaughlin <mclaughlin.denis@gmail.com>
+Date:   Thu Jun 30 15:58:36 2016 -0600
+
+    added most state information to the printStatus() call
+
+commit 3091e46cb89c58115f1a219701cfcc38aad90088
+Author: Denis McLaughlin <mclaughlin.denis@gmail.com>
+Date:   Thu Jun 30 15:58:19 2016 -0600
+
+    changed index of players from 1..4 to 0..3, to match internal indices
+
+commit 122a78b9885eba2a196e4f8fd7254a46a5ed8c62
+Author: Denis McLaughlin <mclaughlin.denis@gmail.com>
+Date:   Thu Jun 30 14:34:57 2016 -0600
+
+    added 4 players to main script, so we're a self-hosting game now
+
+commit 3efd46d6b3e3832ac850d960133628f3044c35c2
+Author: Denis McLaughlin <mclaughlin.denis@gmail.com>
+Date:   Thu Jun 30 01:47:52 2016 -0600
+
+    minor change to log output
+
+commit 21d3af3cfc2a8052dd30b2a635098dadb8bc382e
+Author: Denis McLaughlin <mclaughlin.denis@gmail.com>
+Date:   Thu Jun 30 01:43:50 2016 -0600
+
+    changed log output, new messages being handled
+    
+     - added player name at beginning of all log messages
+     - added code to handle DEAL and ORDEROFFER messages
+     - added tail checks in multiple places
+     - added parsing for hole card
+     - added parsing for hand cards
+     - added printHand() to print all cards in the hand
+
+commit 982ca7174232ceb39e8245bc9596f28a4974f24a
+Author: Denis McLaughlin <mclaughlin.denis@gmail.com>
+Date:   Thu Jun 30 01:43:18 2016 -0600
+
+    added string conversion methods (__add__, __radd__, __str__)
+
+commit dc060961d26f5bbe79858797a7f7bc7fadb69be7
+Author: Denis McLaughlin <mclaughlin.denis@gmail.com>
+Date:   Wed Jun 29 23:52:24 2016 -0600
+
+    modified euchre object to have dicts to map message names to IDs and vice versa
+
+commit aefa7f3daf80d5fb3e420118a227f48b201d2fd5
+Author: Denis McLaughlin <mclaughlin.denis@gmail.com>
+Date:   Wed Jun 29 01:15:11 2016 -0600
+
+    Finished adding support for basic game state: no parsing of cards as yet
+
+commit 16e92f94ad89603dda3c47fb23bd93af895bf60c
+Author: Denis McLaughlin <mclaughlin.denis@gmail.com>
+Date:   Fri Jun 24 00:48:31 2016 -0600
+
+    begun adding processing of state message
+
+commit 9a81d49ce54f52f36eb0c4dd548b244e5c1af8f3
+Author: Denis McLaughlin <mclaughlin.denis@gmail.com>
+Date:   Thu Jun 23 02:56:21 2016 -0600
+
+    added socket service loop, and message handlers JOINACCEPT, JOINDENY, and CHAT
+
+commit 69c35b3d192d7976e22aa6b55f366e4506fabf0d
+Author: Denis McLaughlin <mclaughlin.denis@gmail.com>
+Date:   Thu Jun 23 00:26:01 2016 -0600
+
+    initial commit, with logging
+
+commit e7a1b517aae987a0b940f27f353bc23cbb619494
+Author: Denis McLaughlin <mclaughlin.denis@gmail.com>
+Date:   Sun Jun 12 22:48:54 2016 -0600
+
+    Initial LICENSE file

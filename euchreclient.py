@@ -10,7 +10,7 @@ import string
 from logging import warning as warn, log, debug, info, error, critical
 from card import Card
 
-class Euchred:
+class EuchreClient:
     # this is the dict that maps message ID to message name: we also generate
     # a reverse mapping at the end
     messageId = {
@@ -272,6 +272,104 @@ class Euchred:
 
 
     ###########################################################################
+    # this routine will send an order message: it always orders up, as the
+    # most basic strategy
+    #
+    def sendOrderPass(self):
+        # a start message looks like this:
+        #  <msg> : <msglen> <ORDER> <gh> <ph> <tail>
+
+        # prep the format string
+        format = "!iiiiBB"
+        size = struct.calcsize(format)
+        # reduce the size by 4, to leave out the space needed for the
+        # leading size value
+        size = size - 4
+
+        # now generate a packed array of bytes for the message using that
+        # format string
+        message = struct.pack(format,
+            size,
+            self.messageId['ORDER'],
+            self.gamehandle,
+            self.playerhandle,
+            self.messageId['TAIL1'],
+            self.messageId['TAIL2'],
+        )
+
+        #self.printMessage(message)
+        self.s.send(message)
+
+
+    ###########################################################################
+    # this routine will randomly drop a card, in response to a drop offer
+    #
+    def sendDrop(self):
+        # a start message looks like this:
+        #  <msg> : <msglen> <DROP> <gh> <ph> <card> <tail>
+
+        # get the first card from our cards
+        card = self.hand.pop()
+        info(self.name + ": gonna drop: " + card)
+
+        # prep the format string
+        format = "!iiiiiiBB"
+        size = struct.calcsize(format)
+        # reduce the size by 4, to leave out the space needed for the
+        # leading size value
+        size = size - 4
+
+        # now generate a packed array of bytes for the message using that
+        # format string
+        message = struct.pack(format,
+            size,
+            self.messageId['DROP'],
+            self.gamehandle,
+            self.playerhandle,
+            card.value,
+            card.suit,
+            self.messageId['TAIL1'],
+            self.messageId['TAIL2'],
+        )
+
+        #self.printMessage(message)
+        self.s.send(message)
+
+
+    ###########################################################################
+    # this routine will always decline a defend offer
+    #
+    def sendDefend(self):
+        # a start message looks like this:
+        #  <msg> : <msglen> <DEFEND> <gh> <ph> <card> <tail>
+
+        # get the first card from our cards
+        card = self.hand.pop()
+
+        # prep the format string
+        format = "!iiiiBB"
+        size = struct.calcsize(format)
+        # reduce the size by 4, to leave out the space needed for the
+        # leading size value
+        size = size - 4
+
+        # now generate a packed array of bytes for the message using that
+        # format string
+        message = struct.pack(format,
+            size,
+            self.messageId['DEFENDPASS'],
+            self.gamehandle,
+            self.playerhandle,
+            self.messageId['TAIL1'],
+            self.messageId['TAIL2'],
+        )
+
+        info(self.name + ": sending DEFENDPASS")
+        self.printMessage(message)
+        self.s.send(message)
+
+
+    ###########################################################################
     # this reads a message from the server socket, and processes it
     #
     def parseMessage(self):
@@ -298,10 +396,16 @@ class Euchred:
             return(self.parseState(bytes))
         elif ( id == self.messageId['DEAL'] ):
             return(self.parseDeal(bytes))
-        elif ( id == self.messageId['ORDEROFFER'] ):
-            return(self.parseOrderOffer(bytes))
         elif ( id == self.messageId['STARTDENY'] ):
             return(self.parseStartDeny(bytes))
+        elif ( id == self.messageId['ORDEROFFER'] ):
+            return(self.parseOrderOffer(bytes))
+        elif ( id == self.messageId['DROPOFFER'] ):
+            return(self.parseDropOffer(bytes))
+        elif ( id == self.messageId['DEFENDOFFER'] ):
+            return(self.parseDefendOffer(bytes))
+        elif ( id == self.messageId['DEFENDDENY'] ):
+            return(self.parseDefendDeny(bytes))
         else:
             return(self.badMessage(bytes))
 
@@ -448,12 +552,12 @@ class Euchred:
         # next we parse the game state, for which we use the offset
         # returned from the parseStatePlayer() routine to build a new
         # slice of the bytes array
-        info("")
+        #info("")
         offset += self.parseStateGame(bytes[4+offset:])
 
         # next we parse the cards, which may number 0 if we haven't been
         # dealt any yet
-        info("")
+        #info("")
         offset += self.parseStateCards(bytes[4+offset:])
 
         # check that we have a valid tail
@@ -469,16 +573,16 @@ class Euchred:
     # This routine parses the player data of the <STATE> message
     #
     def parseStatePlayer(self, bytes):
-        debug(self.name + ": parsing player STATE")
+        #debug(self.name + ": parsing player STATE")
         offset = 0
 
-        info("")
+        #info("")
         offset += self.parseStatePlayerN(bytes[offset:],0)
-        info("")
+        #info("")
         offset += self.parseStatePlayerN(bytes[offset:],1)
-        info("")
+        #info("")
         offset += self.parseStatePlayerN(bytes[offset:],2)
-        info("")
+        #info("")
         offset += self.parseStatePlayerN(bytes[offset:],3)
 
         return offset
@@ -488,7 +592,7 @@ class Euchred:
     # This reads the N'th player state information
     #
     def parseStatePlayerN(self, bytes, n):
-        debug(self.name + ": parsing player STATE for player %d" % (n))
+        #debug(self.name + ": parsing player STATE for player %d" % (n))
         offset = 0
 
         # The player data looks like this:
@@ -526,7 +630,7 @@ class Euchred:
             # get the name
             self.state[ph]['name'] = self.parseString(bytes[offset:])
             offset += 4+len(self.state[ph]['name'])
-            info(self.name + ": player name is " + self.state[ph]['name'])
+            #info(self.name + ": player name is " + self.state[ph]['name'])
 
             # get the client name
             self.state[ph]['clientname'] = self.parseString(bytes[offset:])
@@ -614,8 +718,8 @@ class Euchred:
             (self.state[ph]['passed'],) = struct.unpack_from("!i",bytes[offset:])
             offset += 4
 
-        else:
-            info(self.name + ": no player for slot %d" % (n))
+        #else:
+            #info(self.name + ": no player for slot %d" % (n))
 
         return offset
 
@@ -624,7 +728,7 @@ class Euchred:
     # This routine parses the game data of the <STATE> message
     #
     def parseStateGame(self, bytes):
-        debug(self.name + ": parsing game STATE")
+        #debug(self.name + ": parsing game STATE")
         #self.printMessage(bytes)
         offset = 0
 
@@ -673,13 +777,13 @@ class Euchred:
 
         # if there is a hole card on offer, read it
         if self.state['holein'] == 1:
-            info(self.name + ": parsing hole card")
+            #info(self.name + ": parsing hole card")
             (value,suit) = struct.unpack_from("!ii",bytes[offset:])
             self.state['hole'] = Card(value=value,suit=suit)
             info(self.name + ": hole card: " + self.state['hole'])
             offset += 8
-        else:
-            info(self.name + ": no hole card to parse")
+        #else:
+            #info(self.name + ": no hole card to parse")
 
         # read whether trump has been set
         (self.state['trumpset'],) = struct.unpack_from("!i",bytes[offset:])
@@ -687,11 +791,11 @@ class Euchred:
 
         # if it has, read the trump suit
         if self.state['trumpset'] == 1:
-            info(self.name + ": parsing trump suit")
+            #info(self.name + ": parsing trump suit")
             (self.state['trump'],) = struct.unpack_from("!i",bytes[offset:])
             offset += 4
-        else:
-            info(self.name + ": no trump suit to parse")
+        #else:
+            #info(self.name + ": no trump suit to parse")
 
         # and set the number of tricks for each team
         (tricks0,tricks1) = struct.unpack_from("!ii",bytes[offset:])
@@ -775,6 +879,26 @@ class Euchred:
 
 
     ###########################################################################
+    # This routine parses a STARTDENY message
+    #
+    def parseStartDeny(self, bytes):
+        debug(self.name + ": parsing STARTDENY")
+        #self.printMessage(bytes)
+
+        # the format of a STARTDENY message is:
+        #   <msg> : <msglen> <STARTDENY> <string> <tail>
+        # where the string explains why it was denied
+        message = self.parseString(bytes[4:-2])
+
+        # check we have a valid tail
+        (tail1, tail2) = struct.unpack("!BB",bytes[-2:])
+        if tail1 != self.messageId['TAIL1'] or tail2 != self.messageId['TAIL2']:
+            error(self.name + ": bad tail value in parseStartDeny()")
+
+        info(self.name + ": uh-oh, got a STARTDENY message: " + message)
+
+
+    ###########################################################################
     # This routine parses an ORDEROFFER message
     #
     def parseOrderOffer(self, bytes):
@@ -794,18 +918,79 @@ class Euchred:
             error(self.name + ": bad tail value in parseOrderOffer()")
             return(False)
 
+        # if the person offered the order is us, call sendOrderPass()
+        if ph == self.playerhandle:
+            info(self.name + ": calling sendOrderPass()" )
+            self.sendOrderPass()
+
         return(True)
 
 
     ###########################################################################
-    # This routine parses a STARTDENY message
+    # This routine parses a DROPOFFER message
     #
-    def parseStartDeny(self, bytes):
-        debug(self.name + ": parsing STARTDENY")
+    def parseDropOffer(self, bytes):
+        debug(self.name + ": parsing DROPOFFER")
         #self.printMessage(bytes)
 
-        # the format of a STARTDENY message is:
-        #   <msg> : <msglen> <STARTDENY> <string> <tail>
+        # the format of an DROPOFFER message is:
+        #   <msg> : <msglen> <DROPOFFER> <ph> <tail>
+        # it's really just a notification message, unless we're the <ph>
+        (msg, ph) = struct.unpack_from("!ii",bytes)
+        info(self.name + ": drop is offered to %s (%d)" %
+            (self.state[ph]['name'],ph))
+
+        # check we have a valid tail
+        (tail1, tail2) = struct.unpack("!BB",bytes[-2:])
+        if tail1 != self.messageId['TAIL1'] or tail2 != self.messageId['TAIL2']:
+            error(self.name + ": bad tail value in parseDropOffer()")
+            return(False)
+
+        # if the person offered the order is us, call sendOrderPass()
+        if ph == self.playerhandle:
+            info(self.name + ": calling sendDrop()" )
+            self.sendDrop()
+
+        return(True)
+
+
+    ###########################################################################
+    # This routine parses a DEFENDOFFER message
+    #
+    def parseDefendOffer(self, bytes):
+        debug(self.name + ": parsing DEFENDOFFER")
+        #self.printMessage(bytes)
+
+        # the format of an DEFENDOFFER message is:
+        #   <msg> : <msglen> <DEFENDOFFER> <ph> <tail>
+        # it's really just a notification message, unless we're the <ph>
+        (msg, ph) = struct.unpack_from("!ii",bytes)
+        info(self.name + ": defend is offered to %s (%d)" %
+            (self.state[ph]['name'],ph))
+
+        # check we have a valid tail
+        (tail1, tail2) = struct.unpack("!BB",bytes[-2:])
+        if tail1 != self.messageId['TAIL1'] or tail2 != self.messageId['TAIL2']:
+            error(self.name + ": bad tail value in parseDropOffer()")
+            return(False)
+
+        # if the person offered the order is us, call sendOrderPass()
+        if ph == self.playerhandle:
+            info(self.name + ": calling sendDefend()" )
+            self.sendDefend()
+
+        return(True)
+
+
+    ###########################################################################
+    # This routine parses a DEFENDDENY message
+    #
+    def parseDefendDeny(self, bytes):
+        debug(self.name + ": parsing DEFENDDENY")
+        #self.printMessage(bytes)
+
+        # the format of a DEFENDDENY message is:
+        #   <msg> : <msglen> <DEFENDDENY> <string> <tail>
         # where the string explains why it was denied
         message = self.parseString(bytes[4:-2])
 
@@ -814,7 +999,7 @@ class Euchred:
         if tail1 != self.messageId['TAIL1'] or tail2 != self.messageId['TAIL2']:
             error(self.name + ": bad tail value in parseStartDeny()")
 
-        info(self.name + ": uh-oh, got a STARTDENY message: " + message)
+        info(self.name + ": uh-oh, got a DEFENDDENY message: " + message)
 
 
     ###########################################################################
