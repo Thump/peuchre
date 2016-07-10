@@ -175,21 +175,17 @@ while inputs:
     # loop across each readable socket
     for s in readable:
         if s is p0.s:
-            info("")
             #info("game: got data from server for p0")
             p0.parseMessage()
         if s is p1.s:
-            info("")
             #info("game: got data from server for p1")
             p1.parseMessage()
             #p1.status()
         if s is p2.s:
-            info("")
             #info("game: got data from server for p2")
             p2.parseMessage()
             #p2.status()
         if s is p3.s:
-            info("")
             #info("game: got data from server for p3")
             p3.parseMessage()
             #p3.status()

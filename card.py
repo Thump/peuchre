@@ -59,26 +59,60 @@ class Card:
         return other + str(self)
 
     def __str__(self):
-        # set the value string
-        if self.value < 11:
-            value = str(self.value)
-        elif self.value == 11:
-            value = "J"
-        elif self.value == 12:
-            value = "Q"
-        elif self.value == 13:
-            value = "K"
-        elif self.value == 14:
-            value = "A"
-
-        # set the suit
-        if self.suit == 0:
-            suit = "c"
-        elif self.suit == 1:
-            suit = "d"
-        elif self.suit == 2:
-            suit = "h"
-        elif self.suit == 3:
-            suit = "s"
-
+        # set the value and suit string
+        value = Card.valueName(self.value)
+        suit = Card.suitName(self.suit)
         return(value+suit)
+
+
+    ###########################################################################
+    # This takes a suit value and returns the name of the suit
+    #
+    @staticmethod
+    def suitName(index):
+        if   index == 0: return "c"
+        elif index == 1: return "d"
+        elif index == 2: return "h"
+        elif index == 3: return "s"
+
+
+    ########################################################################### 
+    # This takes a card value and returns the name of the card
+    @staticmethod
+    def valueName(index):
+        if   index < 11:  return str(index)
+        elif index == 11: return "J"
+        elif index == 12: return "Q"
+        elif index == 13: return "K"
+        elif index == 14: return "A"
+
+
+    ########################################################################### 
+    # This takes a card value and returns the name of the card
+    @staticmethod
+    def nameValue(index):
+        if   index ==  "2": return  2
+        elif index ==  "3": return  3
+        elif index ==  "4": return  4
+        elif index ==  "5": return  5
+        elif index ==  "6": return  6
+        elif index ==  "7": return  7
+        elif index ==  "8": return  8
+        elif index ==  "9": return  9
+        elif index == "10": return 10
+        elif index ==  "J": return 11
+        elif index ==  "K": return 12
+        elif index ==  "Q": return 13
+        elif index ==  "A": return 14
+
+
+    ###########################################################################
+    # This takes a suit value and returns the complimentary trump suit,
+    # ie. the suit of the same color as trump
+    #
+    @staticmethod
+    def suitComp(index):
+        if   index == 0: return 3
+        elif index == 1: return 2
+        elif index == 2: return 1
+        elif index == 3: return 0
