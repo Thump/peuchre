@@ -138,8 +138,16 @@ class EuchreClient:
             self.name = kwargs['name']
 
 
+    ###########################################################################
+    # prints the score
+    #
+    def printScore(self):
+        info(self.name+": us: %d  them: %d" %
+            (self.state['usscore'],self.state['themscore']) )
+
 
     ###########################################################################
+    # print out the detailed state information
     #
     def status(self):
         info("")
@@ -152,11 +160,19 @@ class EuchreClient:
         info(self.name+":     Team  : " + str(self.team))
         info(self.name+":     Game  : " + str(self.gamehandle))
 
-        # if we haven't got any state set yet, skip this section
-        if not 'hstate' in self.state:
-            return
+        # just the game stuff
+        self.gameStatus()
 
-        # otherwise print all our game state
+        # if we've got a hand state information, we should have all the
+        # player information, so print that
+        if 'hstate' in self.state:
+            self.playerStatus()
+
+
+    ###########################################################################
+    # print out the game state information
+    #
+    def gameStatus(self):
         info("")
         info(self.name+": Game Status:")
         info(self.name+":     Score : %d vs %d"
@@ -180,6 +196,11 @@ class EuchreClient:
         else:
             info(self.name+":     Hole Card: " + self.state['hole'])
 
+
+    ###########################################################################
+    # print out all the player state info
+    #
+    def playerStatus(self):
         for i in (0,1,2,3):
             # skip this player if their state isn't joined
             if self.state[i]['state'] != 2:
@@ -400,10 +421,10 @@ class EuchreClient:
     #
     def sendPlayLead(self):
         # get the first card from our cards
-        card = self.hand.pop()
-        info("")
         info(self.name+": cards: " + self.printHand(self.hand))
-        info(self.name+": lead with " + card
+        (card,) = random.sample(self.hand,1)
+        self.removeCard(card)
+        info(self.name+": leading with " + card
             + " (" + self.printHand(self.hand) + ")")
 
         # prep the format string
@@ -440,10 +461,10 @@ class EuchreClient:
         cards = self.followCards()
         
         # get the first card from our cards
-        card = cards.pop()
-        info("")
         info(self.name+": cards: " + self.printHand(self.hand))
-        info(self.name+": follow with " + card
+        (card,) = random.sample(cards,1)
+        self.removeCard(card)
+        info(self.name+": following with " + card
             + " (" + self.printHand(self.hand) + ")")
 
         # prep the format string
@@ -466,7 +487,7 @@ class EuchreClient:
             self.messageId['TAIL2'],
         )
 
-        info(self.name+": sending PLAY")
+        #info(self.name+": sending PLAY")
         #self.printMessage(message)
         self.s.send(message)
 
@@ -514,6 +535,10 @@ class EuchreClient:
             return(self.parsePlayDeny(bytes))
         elif ( id == self.messageId['TRICKOVER'] ):
             return(self.parseTrickOver(bytes))
+        elif ( id == self.messageId['HANDOVER'] ):
+            return(self.parseHandOver(bytes))
+        elif ( id == self.messageId['GAMEOVER'] ):
+            return(self.parseGameOver(bytes))
         else:
             info(self.name+": message is: %s (%d)" % (self.messageName[id],id))
             return(self.badMessage(bytes))
@@ -606,7 +631,7 @@ class EuchreClient:
     # to be passed a bytes array beginning with the string length
     #
     def parseState(self, bytes):
-        #debug(self.name+": parsing STATE")
+        #info(self.name+": parsing STATE")
         #self.printMessage(bytes)
         offset = 0
 
@@ -977,10 +1002,10 @@ class EuchreClient:
         offset += 4
 
         # if we have a non-zero number of cards, read them
-        self.hand = set([])
+        self.hand = list([])
         for i in range(self.state['numcards']):
             (value,suit) = struct.unpack_from("!ii",bytes[offset:])
-            self.hand.add(Card(value=value,suit=suit))
+            self.hand.append(Card(value=value,suit=suit))
             offset += 8
 
         return offset
@@ -992,7 +1017,8 @@ class EuchreClient:
     # receiving the deal message should be fully populated
     #
     def parseDeal(self, bytes):
-        #debug(self.name+": parsing DEAL")
+        debug("")
+        debug(self.name+": parsing DEAL")
         #self.printMessage(bytes)
 
         # the format of a DEAL message is:
@@ -1105,8 +1131,7 @@ class EuchreClient:
         # if the person offered the order is us, call sendOrderPass()
         if ph == self.playerhandle:
             info("")
-            info(self.name+": defend is offered to %s (%d)" %
-                (self.state[ph]['name'],ph))
+            info(self.name+": declining defend alone")
             self.sendDefend()
 
         return(True)
@@ -1137,13 +1162,15 @@ class EuchreClient:
     # This routine parses a PLAYOFFER message
     #
     def parsePlayOffer(self, bytes):
-        #debug(self.name+": parsing PLAYOFFER")
+        #info(self.name+": parsing PLAYOFFER")
         #self.printMessage(bytes)
 
         # the format of an PLAYOFFER message is:
         #   <msg> : <msglen> <PLAYOFFER> <ph> <tail>
         # it's really just a notification message, unless we're the <ph>
         (msg, ph) = struct.unpack_from("!ii",bytes)
+        info("")
+        info(self.name+": got PLAYOFFER for %s" % (self.state[ph]['name']))
 
         # check we have a valid tail
         (tail1, tail2) = struct.unpack("!BB",bytes[-2:])
@@ -1178,6 +1205,8 @@ class EuchreClient:
         info("")
         info(self.name+": uh-oh, got a PLAYDENY message: " + message)
 
+        sys.exit()
+
 
     ###########################################################################
     # This routine parses a TRICKOVER message
@@ -1200,6 +1229,60 @@ class EuchreClient:
         if self.playerhandle == 0:
             info("")
             info(self.name+": trick is over")
+
+
+    ###########################################################################
+    # This routine parses a HANDOVER message
+    #
+    def parseHandOver(self, bytes):
+        info("")
+        info(self.name+": parsing HANDOVER")
+        #self.printMessage(bytes)
+
+        # the format of a HANDOVER message is:
+        #   <msg> : <msglen> <HANDOVER> <tail>
+        # ie. it's just an alert, so no need to parse anything out of it
+
+        # check we have a valid tail
+        (tail1, tail2) = struct.unpack("!BB",bytes[-2:])
+        if tail1 != self.messageId['TAIL1'] or tail2 != self.messageId['TAIL2']:
+            error(self.name+": bad tail value in parseHandOver()")
+
+        # we don't want to clutter the log by reporting all instances
+        # of the trick over message, so we only print it for player 0
+        if self.playerhandle == 0:
+            info("")
+            info(self.name+": hand is over")
+            self.printScore()
+
+
+    ###########################################################################
+    # This routine parses a GAMEOVER message
+    #
+    def parseGameOver(self, bytes):
+        info("")
+        info(self.name+": parsing GAMEOVER")
+        #self.printMessage(bytes)
+
+        # the format of a GAMEOVER message is:
+        #   <msg> : <msglen> <GAMEOVER> <tail>
+        # ie. it's just an alert, so no need to parse anything out of it
+
+        # check we have a valid tail
+        (tail1, tail2) = struct.unpack("!BB",bytes[-2:])
+        if tail1 != self.messageId['TAIL1'] or tail2 != self.messageId['TAIL2']:
+            error(self.name+": bad tail value in parseHandOver()")
+
+        # we don't want to clutter the log by reporting all instances
+        # of the trick over message, so we only print it for player 0
+        if self.playerhandle == 0:
+            info("")
+            info(self.name+": game is over")
+
+        # to reduce clutter, print the game status only if we're p0
+        if self.playerhandle == 0:
+            self.gameStatus()
+            sys.exit()
 
 
     ###########################################################################
@@ -1248,10 +1331,17 @@ class EuchreClient:
             if self.state[i]['leader'] == 1:
                 leader = i
 
-        # set the lead card
-        leadsuit  = self.state[leader]['card'].suit
+        # set the trump and complimentary suits
         trumpsuit = self.state['trump']
         compsuit  = Card.suitComp(self.state['trump'])
+
+        # set the leadsuit to the suit of the lead card, unless the lead
+        # card is the left (ie. the J of compsuit), in which case set the
+        # leadsuit to trump
+        leadsuit  = self.state[leader]['card'].suit
+        if leadsuit == compsuit and \
+           self.state[leader]['card'].value == Card.nameValue("J"):
+            leadsuit = trumpsuit
 
         # print some info out
         #info("")
@@ -1262,26 +1352,53 @@ class EuchreClient:
 
         # step through the player's hand: anything with the same suit
         # gets added to the playable cards list
-        playable = set([])
+        playable = list([])
         for card in self.hand:
-            if card.suit == leadsuit:
-                playable.add(card)
+            # put the suit and value of this card into temporary variables
+            csuit  = card.suit
+            cvalue = card.value
 
-        # if the lead suit is the trump suit, we also need to check if
-        # we have the J of the complementary suit, since it's really trump
-        if leadsuit == trumpsuit:
-            left = Card(value=Card.nameValue("J"),suit=compsuit)
-            #info("left is: " + left)
-            for card in self.hand:
-                if card.value == left.value and card.suit == left.suit:
-                    #info(self.name+": adding left")
-                    playable.add(card)
+            # if the card value is a J and its suit is the compsuit (ie.
+            # the complimentary suit of trump), then rewrite the suit as
+            # trump
+            if cvalue == Card.nameValue("J") and csuit == compsuit:
+                csuit = trumpsuit
+
+            # now if the possible-remapped csuit value matches the lead
+            # suit, add the card to the playable hand
+            if csuit == leadsuit:
+                playable.append(card)
 
         # if we have no playable cards by suit, then we can play anything
+        #info(self.name+": before playable cards: " + self.printHand(playable))
         if len(playable) == 0:
-            playable.update(self.hand)
+            playable = self.hand.copy()
 
         # print the hand
-        #info(self.name+": playable cards: " + self.printHand(playable))
+        info(self.name+": playable cards: " + self.printHand(playable)
+            + ", lead: " + Card.suitName(leadsuit) + ", "
+            + " trump: " + Card.suitName(trumpsuit) )
+
+        # generate some stats for follow requirements
+        hand = 6 - len(self.hand)
+        ratio = len(playable) / len(self.hand)
+        info("stats: hand:%d  ratio:%f  (%d/%d)" %
+            (hand,ratio,len(playable),len(self.hand)) )
 
         return playable
+
+    ###########################################################################
+    # This takes a card and removes it from the player's hand: we need to
+    # do it like this because sometimes we're working with a copy of the
+    # card (ie. when we're using playable sets to follow), so we need to
+    # remove by value and not by reference
+    #
+    def removeCard(self, card):
+        # get the card value and suit
+        value = card.value
+        suit = card.suit
+
+        # loop across all cards in the hand
+        for card in self.hand:
+            if card.value == value and card.suit == suit:
+                self.hand.remove(card)
