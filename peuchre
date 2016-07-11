@@ -53,52 +53,6 @@ def sendStart():
 
 
 ###########################################################################
-# This will determine who has an order offer, and allow that player to
-# order or pass (by calling the relevant routine for that player).  It uses
-# an array to track ordering, since it's possible that between ordering
-# or passing, we can receive multiple messages, and consequently order or
-# pass multiple times
-#
-def sendOrderPass():
-    # default player to NUL
-    player = 0
-
-    # figure out the player with the order offer
-    if p0.state[0]['orderoffer'] == 1:
-        player = p0
-        if 0 in ordered and ordered[0] == 1:
-            info("player 0 already ordered/passed, skipping")
-            return
-        ordered[0] = 1
-    if p1.state[1]['orderoffer'] == 1:
-        player = p1
-        if 1 in ordered and ordered[1] == 1:
-            info("player 1 already ordered/passed, skipping")
-            return
-        ordered[1] = 1
-    if p2.state[2]['orderoffer'] == 1:
-        player = p2
-        if 2 in ordered and ordered[2] == 1:
-            info("player 2 already ordered/passed, skipping")
-            return
-        ordered[2] = 1
-    if p3.state[3]['orderoffer'] == 1:
-        player = p3
-        if 3 in ordered and ordered[3] == 1:
-            info("player 3 already ordered/passed, skipping")
-            return
-        ordered[3] = 1
-
-    # if player isn't set, then no player has an order offer, weird
-    if player == 0:
-        info("no player has an order offer")
-        return
-
-    info("player " + player.name + " is ordering")
-    player.sendOrderPass()
-
-
-###########################################################################
 # parse our options
 
 parser = OptionParser()
@@ -144,8 +98,6 @@ logger.addHandler(fh)
 # we track whether we've sent a start message or not
 started = 0
 
-# we track whether a player has ordered or not
-ordered = {}
 
 ###########################################################################
 # mainline
