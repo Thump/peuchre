@@ -16,14 +16,12 @@ from logging import warning as warn, log, debug, info, error, critical
 #
 def allJoined():
     # default to true
-    state = False
+    state = True
 
     # if any player has not joined, set to false
-    if     'state' in p0.state[0] and p0.state[0]['state'] == 2 \
-       and 'state' in p0.state[1] and p0.state[1]['state'] == 2 \
-       and 'state' in p0.state[2] and p0.state[2]['state'] == 2 \
-       and 'state' in p0.state[3] and p0.state[3]['state'] == 2:
-        state = True
+    for player in players:
+        if 'state' not in player.state or player.state['state'] != 2:
+            state = False
 
     return state
 
@@ -34,22 +32,10 @@ def allJoined():
 #
 def sendStart():
     # figure out the creator
-    if p0.state[0]['creator'] == 1:
-        # send start message
-        info("game: p0 is the creator")
-        p0.sendStart()
-    if p1.state[1]['creator'] == 1:
-        # send start message
-        info("game: p1 is the creator")
-        p1.sendStart()
-    if p2.state[2]['creator'] == 1:
-        # send start message
-        info("game: p2 is the creator")
-        p2.sendStart()
-    if p3.state[3]['creator'] == 1:
-        # send start message
-        info("game: p3 is the creator")
-        p3.sendStart()
+    for player in players:
+        if player.state['creator'] == 1:
+            player.sendStart()
+            return
 
 
 ###########################################################################
@@ -98,47 +84,33 @@ logger.addHandler(fh)
 # we track whether we've sent a start message or not
 started = 0
 
+# this will be the list of active sockets to run select on
+inputs = []
+players = []
 
 ###########################################################################
 # mainline
 
 info("This is peuchre")
 
-p0 = EuchreClient(server="127.0.0.1", port=1234, name="p0")
-p0.sendJoin()
+# add up to 4 clients: sendJoin() will return false if we fail to join,
+# so we can use its return value to determine if we should add that client
+# to the list of players, and add its socket to the inputs list to be
+# monitored by select() later
+for p in (0,1,2,3):
+    player = EuchreClient(server="127.0.0.1", port=1234, name="p%d"%(p))
+    if player.sendJoin():
+        players.append(player)
+        inputs.append(player.s)
 
-p1 = EuchreClient(server="127.0.0.1", port=1234, name="p1")
-p1.sendJoin()
-
-p2 = EuchreClient(server="127.0.0.1", port=1234, name="p2")
-p2.sendJoin()
-
-p3 = EuchreClient(server="127.0.0.1", port=1234, name="p3")
-p3.sendJoin()
-
-# now we loop to handle events from the server
-inputs = [ p0.s , p1.s , p2.s , p3.s ]
-
-# loop while we still have valid inputs (actually, since we never modify
-# the inputs array, we just loop forever)
+# loop across our client sockets checking for input to process
 while inputs:
     readable, writable, exceptional = select.select(inputs, [], inputs)
 
-    #if   p0.s in readable: p0.parseMessage()
-    #elif p1.s in readable: p1.parseMessage()
-    #elif p2.s in readable: p2.parseMessage()
-    #elif p3.s in readable: p3.parseMessage()
-
     # loop across each readable socket
-    for s in readable:
-        if s is p0.s:
-            p0.parseMessage()
-        if s is p1.s:
-            p1.parseMessage()
-        if s is p2.s:
-            p2.parseMessage()
-        if s is p3.s:
-            p3.parseMessage()
+    for player in players:
+        if player.s in readable:
+            player.parseMessage()
 
     # each time through, we drive game state forward by checking to see
     # the current hand state
@@ -153,7 +125,7 @@ while inputs:
     # to check it against any other player too
     if allJoined():
         # this sends the start message: let the games begin!
-        if p0.state['hstate'] == 0 and started != 1:
+        if players[0].state['hstate'] == 0 and started != 1:
             info("")
             info("game: everyone is joined, sending start %d" % (started))
             sendStart()

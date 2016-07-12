@@ -6,6 +6,7 @@ import logging
 import sys
 import random
 import string
+import select
 
 from logging import warning as warn, log, debug, info, error, critical
 from card import Card
@@ -114,10 +115,10 @@ class EuchreClient:
     #
     def __init__(self, **kwargs):
         self.server = "0.0.0.0"
-        self.port = 0
-        self.playerhandle = 0
-        self.gamehandle = 0
-        self.team = 0
+        self.port = -1
+        self.playerhandle = -1
+        self.gamehandle = -1
+        self.team = -1
 
         # this tracks the data from the most recent state information
         self.state = {}
@@ -125,6 +126,7 @@ class EuchreClient:
         self.state[1] = {}
         self.state[2] = {}
         self.state[3] = {}
+        self.state['state'] = 0
 
         # randomize that name!
         self.name = ''.join(random.SystemRandom().choice(string.ascii_uppercase + string.digits) for _ in range(10))
@@ -265,6 +267,37 @@ class EuchreClient:
 
         #self.printMessage(message)
         self.s.send(message)
+
+        # set up a select with this socket
+        inputs = [ self.s ]
+
+        # wait for a message to come in
+        readable, writable, exceptional = select.select(inputs, [], inputs)
+
+        # we read  single int from the socket: this should represent the
+        # length of the entire message
+        (size,) = struct.unpack("!i",self.s.recv(4))
+
+        # read the specified number of bytes from the socket
+        bytes = self.s.recv(size)
+        #info(self.name+": len of bytes is " + str(len(bytes)))
+
+        # decode the message identifier
+        (id,) = struct.unpack_from("!i",bytes)
+        #info(self.name+": message is: %s (%d)" % (self.messageName[id],id))
+
+        # now we mung out a case switch on the message identifier
+        if ( id == self.messageId['JOINACCEPT'] ):
+            info(self.name+": join successful")
+            return(self.parseJoinAccept(bytes))
+        elif ( id == self.messageId['JOINDENY'] ):
+            return(self.parseJoinDeny(bytes))
+        elif ( id == self.messageId['DECLINE'] ):
+            return(self.parseDecline(bytes))
+        else:
+            info(self.name+": unknown join response: %s (%d)" %
+                (self.messageName[id],id))
+            return(self.badMessage(bytes))
 
 
     ###########################################################################
@@ -566,6 +599,8 @@ class EuchreClient:
         self.playerhandle = ph
         self.team         = team
 
+        return(True)
+
 
     ###########################################################################
     # This routine parses a JOINDENY message
@@ -574,7 +609,31 @@ class EuchreClient:
         #debug(self.name+": parsing JOINDENY")
         #self.printMessage(bytes)
 
-        return(True)
+        # the format of a JOINDENY message is:
+        #   <msg> : <msglen> <JOINDENY> <string> <tail>
+        # where the string explains why it was denied
+        message = self.parseString(bytes[4:-2])
+
+        info(self.name+": join denied: " + message)
+
+        return(False)
+
+
+    ###########################################################################
+    # This routine parses a DECLINE message
+    #
+    def parseDecline(self, bytes):
+        #debug(self.name+": parsing DECLINE")
+        #self.printMessage(bytes)
+
+        # the format of a DECLINE message is:
+        #   <msg> : <msglen> <DECLINE> <string> <tail>
+        # where the string explains why it was denied
+        message = self.parseString(bytes[4:-2])
+
+        info(self.name+": join declined: " + message)
+
+        return(False)
 
 
     ###########################################################################
@@ -754,6 +813,10 @@ class EuchreClient:
         (self.state[n]['state'],) = struct.unpack_from("!i",bytes)
         offset += 4 # track the offset into the bytes array
 
+        # if this is our state, promote it up
+        if n == self.playerhandle:
+            self.state['state'] = self.state[n]['state']
+
         # if player state is 2 (ie. connected), then read the rest of the info
         if self.state[n]['state'] == 2:
             # get the player handle: not sure why I duped this, since the
@@ -794,8 +857,8 @@ class EuchreClient:
             # get the creator boolean
             (self.state[ph]['creator'],) = \
                 struct.unpack_from("!i",bytes[offset:])
-            if self.state[ph]['creator'] == 1:
-                self.state['creator'] = ph
+            if ph == self.playerhandle:
+                self.state['creator'] = self.state[ph]['creator']
             offset += 4
 
             # get the ordered boolean
