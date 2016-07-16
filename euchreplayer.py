@@ -1,4 +1,14 @@
-# This class allows for interaction with a euchred server.
+# This class implements an interface for a single player to the euchred
+# server.  This class expects to be used as a base class for an actual
+# player class that can be used with the peuchre program.  The real
+# player class is expected to be called Player, it needs to sub-class
+# EuchrePlayer, and needs to implement the following methods:
+#
+#  - decideOrderPass)
+#  - decideDrop)
+#  - decideDefend)
+#  - decidePlayLead)
+#  - decidePlayFollow)
 
 import socket
 import struct
@@ -11,7 +21,7 @@ import select
 from logging import warning as warn, log, debug, info, error, critical
 from card import Card
 
-class EuchreClient:
+class EuchrePlayer:
     # this is the dict that maps message ID to message name: we also generate
     # a reverse mapping at the end
     messageId = {
@@ -337,6 +347,10 @@ class EuchreClient:
         # a start message looks like this:
         #  <msg> : <msglen> <ORDER> <gh> <ph> <tail>
 
+        # get the message we should send to the server: this should be one
+        # of ORDER, ORDERALONE, or ORDERPASS
+        message = self.decideOrderPass()
+
         # prep the format string
         format = "!iiiiBB"
         size = struct.calcsize(format)
@@ -348,7 +362,7 @@ class EuchreClient:
         # format string
         message = struct.pack(format,
             size,
-            self.messageId['ORDER'],
+            message,
             self.gamehandle,
             self.playerhandle,
             self.messageId['TAIL1'],
@@ -358,11 +372,6 @@ class EuchreClient:
         #self.printMessage(message)
         self.s.send(message)
 
-        # log our action
-        info("")
-        info(self.name+": I will order " + self.state['hole']
-            + " to " + self.state[ self.state['dealer'] ]['name'] )
-
 
     ###########################################################################
     # this routine will randomly drop a card, in response to a drop offer
@@ -371,11 +380,8 @@ class EuchreClient:
         # a start message looks like this:
         #  <msg> : <msglen> <DROP> <gh> <ph> <card> <tail>
 
-        # get the first card from our cards
-        info("")
-        info(self.name+": cards: " + self.printHand(self.hand))
-        card = self.hand.pop()
-        info(self.name+": gonna drop: " + card)
+        # call decideDrop() which should return a card to drop
+        card = self.decideDrop()
 
         # prep the format string
         format = "!iiiiiiBB"
@@ -408,6 +414,10 @@ class EuchreClient:
         # a start message looks like this:
         #  <msg> : <msglen> <DEFEND> <gh> <ph> <card> <tail>
 
+        # call the decideDefend() routine to determine if we should
+        # defend alone or not
+        message = self.decideDefend()
+
         # prep the format string
         format = "!iiiiBB"
         size = struct.calcsize(format)
@@ -419,7 +429,7 @@ class EuchreClient:
         # format string
         message = struct.pack(format,
             size,
-            self.messageId['DEFENDPASS'],
+            message,
             self.gamehandle,
             self.playerhandle,
             self.messageId['TAIL1'],
@@ -453,12 +463,12 @@ class EuchreClient:
     # anything
     #
     def sendPlayLead(self):
-        # get the first card from our cards
-        info(self.name+": cards: " + self.printHand(self.hand))
-        (card,) = random.sample(self.hand,1)
+        # call decidePlayLead() to determine what card we should play as
+        # a lead
+        card = self.decidePlayLead()
+
+        # remove the card from our hand
         self.removeCard(card)
-        info(self.name+": leading with " + card
-            + " (" + self.printHand(self.hand) + ")")
 
         # prep the format string
         format = "!iiiiiiBB"
@@ -490,15 +500,12 @@ class EuchreClient:
     # play a random (valid) card
     #
     def sendPlayFollow(self):
-        # get the set of cards that we can follow with
-        cards = self.followCards()
-        
-        # get the first card from our cards
-        info(self.name+": cards: " + self.printHand(self.hand))
-        (card,) = random.sample(cards,1)
+        # call decidePlayFollow() to determine the card we should follow
+        # with: this assumes that the returned card is valid
+        card = self.decidePlayFollow()
+
+        # remove the card from our hand
         self.removeCard(card)
-        info(self.name+": following with " + card
-            + " (" + self.printHand(self.hand) + ")")
 
         # prep the format string
         format = "!iiiiiiBB"

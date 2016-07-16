@@ -6,8 +6,6 @@ import sys
 import select
 
 from optparse import OptionParser
-from euchreclient import EuchreClient
-from card import Card
 from logging import warning as warn, log, debug, info, error, critical
 
 
@@ -42,11 +40,29 @@ def sendStart():
 # parse our options
 
 parser = OptionParser()
+
+# add an option to reduce the chatty-ness of the logs: this doesn't do very
+# much as yet
 parser.add_option("-q", "--quiet",
                   dest="quiet",
                   default=False,
                   action="store_true",
                   help="don't print anything to stdout")
+
+# add an option to set the team 0 class name: if we don't have a class name,
+# we default to the random player
+parser.add_option("-0", "--team0",
+                  dest="team0",
+                  default='randomplayer',
+                  help="set the class name for Team 0 players")
+
+# add an option to set the team 1 class name: if we don't have a class name,
+# we default to the random player
+parser.add_option("-1", "--team1",
+                  dest="team1",
+                  default='randomplayer',
+                  help="set the class name for Team 1 players")
+
 (options, args) = parser.parse_args()
 
 
@@ -93,17 +109,67 @@ players = []
 
 info("This is peuchre")
 
-# add up to 4 clients: sendJoin() will return false if we fail to join,
-# so we can use its return value to determine if we should add that client
-# to the list of players, and add its socket to the inputs list to be
-# monitored by select() later
-for p in (0,1,2,3):
-    player = EuchreClient(server="127.0.0.1", port=1234, name="p%d"%(p))
-    if player.sendJoin():
-        players.append(player)
-        inputs.append(player.s)
+# take
+Team0 = __import__(options.team0, globals(), locals(), ['Player'], 0).Player
+Team1 = __import__(options.team1, globals(), locals(), ['Player'], 0).Player
 
-# loop across our client sockets checking for input to process
+# ok, I know Python is supposed to be EFAP, but I think it's a better idea
+# to check that the player classes are providing the necessary methods
+# before, since we can handle it more gracefully once
+try:
+    callable(Team0.decideOrderPass)
+    callable(Team0.decideDrop)
+    callable(Team0.decideDefend)
+    callable(Team0.decidePlayLead)
+    callable(Team0.decidePlayFollow)
+except AttributeError:
+    info("")
+    error("Hmm, the Team0 class ('%s') isn't providing all"
+        % (options.team0))
+    error("the necessary methods:")
+    for method in ("decideOrderPass()","decideDrop()","decideDefend()",
+        "decidePlayLead()","decidePlayFollow()"):
+        info(method)
+
+try:
+    callable(Team1.decideOrderPass)
+    callable(Team1.decideDrop)
+    callable(Team1.decideDefend)
+    callable(Team1.decidePlayLead)
+    callable(Team1.decidePlayFollow)
+except AttributeError:
+    info("")
+    error("Hmm, the Team1 class ('%s') isn't providing all"
+        % (options.team1))
+    error("the necessary methods:")
+    for method in ("decideOrderPass()","decideDrop()","decideDefend()",
+        "decidePlayLead()","decidePlayFollow()"):
+        info(method)
+
+
+# now we create up to 4 players and join them to the server: we stagger the
+# player joins by team, since the server will assign the added players to team
+# 0, then team 1, then team 0 again, then team 1 again; after each join, we
+# check if the join succeeded, and if so, we add the player to the list of
+# players and sockets
+player = Team0(server="127.0.0.1", port=1234, name="p0")
+if player.sendJoin():
+    players.append(player)
+    inputs.append(player.s)
+player = Team1(server="127.0.0.1", port=1234, name="p1")
+if player.sendJoin():
+    players.append(player)
+    inputs.append(player.s)
+player = Team0(server="127.0.0.1", port=1234, name="p2")
+if player.sendJoin():
+    players.append(player)
+    inputs.append(player.s)
+player = Team1(server="127.0.0.1", port=1234, name="p3")
+if player.sendJoin():
+    players.append(player)
+    inputs.append(player.s)
+
+# loop across our player sockets checking for input to process
 while inputs:
     readable, writable, exceptional = select.select(inputs, [], inputs)
 
