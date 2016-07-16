@@ -84,7 +84,7 @@ class Player(EuchrePlayer):
         # choose a random card from the set of cards that we can follow with
         cards = self.followCards()
         (card,) = random.sample(cards,1)
-        
+
         # log our intent
         info(self.name+": cards: " + self.printHand(self.hand))
         info(self.name+": following with " + card

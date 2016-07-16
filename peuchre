@@ -185,7 +185,7 @@ while inputs:
     #  - if trump (2), then someone has an option to call trump
     #  - if defend (3), then someone has an option to defend alone
     #  - if play (4), then someone has an option to play
-    # 
+    #
     # the game state is sent to all players, but it should be the same
     # for them all, so we check it against player 0, but it would work
     # to check it against any other player too
