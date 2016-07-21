@@ -1,0 +1,54 @@
+#!/usr/bin/python3
+
+###########################################################################
+# This short script generates a set of all possible euchre hands: it does
+# via monte carlo rather than iteration, because ... well, just because.
+# It would be faster via iteration, certainly, but it only takes a few
+# minutes with monte carlo.
+#
+# The output will be written to stderr, so it can be run with:
+#    ./allhands 2>hands.txt
+#
+# The contents of hands.txt are suitable to be read directly by the remap
+# script.
+
+import random
+import sys
+
+cards = list([])
+for suit in ("c","d","h","s"):
+    for value in ("9","T","J","Q","K","A"):
+        cards.append(value+suit)
+
+print("size of cards: %d" % (len(cards)))
+
+# initialize empty list of hands
+hands = list([])
+
+while True:
+    # initialize empty hand
+    hand  = list([])
+
+    # choose 5 unique cards
+    for i in (1,2,3,4,5):
+        while True:
+            card = random.choice(cards)
+            if card not in hand:
+                break
+        hand.append(card)
+
+    # sort it to put it in a consistent order
+    hand.sort()
+    #print("got a hand: " + str(hand))
+
+    if hand not in hands:
+        hands.append(hand)
+
+    print("number of hands: %d" % (len(hands)), end="\r")
+
+    # once we have the maximum number of hands, print them out
+    if len(hands) == 42504:
+        print("")
+        for hand in hands:
+            sys.stderr.write(str(hand)+"\n")
+        break

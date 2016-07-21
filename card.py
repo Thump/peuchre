@@ -76,11 +76,23 @@ class Card:
         elif index == 3: return "s"
 
 
+    ###########################################################################
+    # This takes a suit value and returns the name of the suit
+    #
+    @staticmethod
+    def nameSuit(index):
+        if   index == "c": return 0
+        elif index == "d": return 1
+        elif index == "h": return 2
+        elif index == "s": return 3
+
+
     ########################################################################### 
     # This takes a card value and returns the name of the card
     @staticmethod
     def valueName(index):
-        if   index < 11:  return str(index)
+        if   index < 10:  return str(index)
+        elif index == 10: return "T"
         elif index == 11: return "J"
         elif index == 12: return "Q"
         elif index == 13: return "K"
@@ -100,6 +112,7 @@ class Card:
         elif index ==  "8": return  8
         elif index ==  "9": return  9
         elif index == "10": return 10
+        elif index ==  "T": return 10
         elif index ==  "J": return 11
         elif index ==  "K": return 12
         elif index ==  "Q": return 13

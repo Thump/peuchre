@@ -1,0 +1,183 @@
+#!/usr/bin/python3
+
+###########################################################################
+# This script was written to test the remap routine for peuchre; the remap
+# routine takes a hand and a trump suit and returns a generic hand, remapped
+# to show the suits of trump, complimentary trump, and the two off suits,
+# in a way that makes the hands comparable across trump.  It should reduce
+# the number of hands from 24 choose 5 (42504) multiplied by 4 trump,
+# ~170,000, down to about ~22,400
+#
+# It depends on the Card objects, which is specified in card.py of the
+# peuchre package
+
+ 
+import sys
+
+from card import Card
+
+
+###########################################################################
+# This routine takes a set of cards and a trump suit, and returns a string
+# with the cards remapped to a suit-independent view of that hand:
+#     input: 'Jd', 'Ks', 'Qc', 'Qh', 'Jh', d trump
+#    output: RLtQcKaQb
+# which is read as: right and left of trump, Q of complimentary, K of
+# off-suit a, Q of off-suit b
+#
+# The intention is that this remapping of suits will be the same for any
+# trump suit, and symmetric for the off-suit cards.
+#
+#  - the J of trump and J of comp are remapped to R and L, both of suit
+#    "t' ("trump")
+#  - any cards of the comp suit ("h" if trump is "d", "c" if trump is "s",
+#    etc) are mapped to suit "c" (complimentary, unfortunately colliding
+#    with the "c' of clubs, but we'll have to manage with that)
+#  - card within their classes are sorted from high to low
+#  - any off suit cards are merged into a string and ordered alphabetically
+#    by value of suit and number of cards, and then the suits remapped to
+#    "a" and "b"
+#
+def remap(hand, trumpsuit):
+    # set the trump and complimentary suit
+    compsuit = Card.suitName(Card.suitComp(trumpsuit))
+    trumpsuit = Card.suitName(trumpsuit)
+
+    # set the asuit and bsuit arbitrarily: we'll be sorting them later
+    if trumpsuit == "c" or trumpsuit == "s":
+        asuit = "d"
+        bsuit = "h"
+    if trumpsuit == "h" or trumpsuit == "d":
+        asuit = "c"
+        bsuit = "s"
+
+    # set up our cardsets
+    trump = list([])
+    comp  = list([])
+    a     = list([])
+    b     = list([])
+
+    # go through each card, add it to the respective sets
+    for card in hand:
+        v = Card.valueName(card.value)
+        s = Card.suitName(card.suit)
+
+        # if it's the trump suit, add it to the trump set
+        if s == trumpsuit:
+            # if it's the J, relabel it as R
+            if v == "J":
+                v = "R"
+            trump.append(v)
+
+        # if it's the comp suit, add it to the comp set, unless it's the
+        # left, in which case rename it to "L" and add it to the trump
+        # set
+        if s == compsuit:
+            # if it's the left, add it to the trump set
+            if v == "J":
+                v = "L"
+                trump.append(v)
+            else:
+                comp.append(v)
+
+        # we've already arbitrarily set the asuit and bsuit values, so
+        # now we add cards to them: we'll make decisions about the final
+        # order in a moment
+        if s == asuit:
+            a.append(v)
+        if s == bsuit:
+            b.append(v)
+
+    # now we compose the remapped hand string; first add the trump and
+    # comp set cards
+    string = ""
+    if len(trump) > 0:
+        for card in sorted(trump):
+            string += card
+    string += "t"
+    if len(comp) > 0:
+        for card in sorted(comp):
+            string += card
+    string += "c"
+
+    # we add the a and b sets using the following logic:
+    #  - if one set is longer than the other, add the longer one first
+    #  - if both sets are the same length, and the contents are the same,
+    #    it doesn't matter which we add first, so do a first, then b
+    #  - if both sets are the same length, and the contents are different,
+    #    add the one that sorts first
+    if len(a) == 0 and len(b) == 0:
+        string += "ab"
+    elif len(a) > 0 and len(b) == 0:
+        for card in sorted(a):
+            string += card
+        string += "a"
+        string += "b"
+    elif len(b) > 0 and len(a) == 0:
+        for card in sorted(b):
+            string += card
+        string += "a"
+        string += "b"
+    elif len(a) > len(b):
+        for card in sorted(a):
+            string += card
+        string += "a"
+        for card in sorted(b):
+            string += card
+        string += "b"
+    elif len(b) > len(a):
+        for card in sorted(b):
+            string += card
+        string += "a"
+        for card in sorted(a):
+            string += card
+        string += "b"
+    elif a > b or a == b:
+        for card in sorted(a):
+            string += card
+        string += "a"
+        for card in sorted(b):
+            string += card
+        string += "b"
+    elif a < b:
+        for card in sorted(b):
+            string += card
+        string += "a"
+        for card in sorted(a):
+            string += card
+        string += "b"
+
+    return string
+
+
+# open the file with the hands in it
+f = open('hands', 'r')
+
+# read all the hands
+hands = list([])
+for line in f:
+    # remove the leading and trailing []
+    line = line.rstrip(']\n').lstrip('[').replace(',','').replace("'",'')
+    hand = line.split(' ')
+
+    h = list([])
+    for card in hand:
+        #(v,s) = card.split(None)
+        v = card[0]
+        s = card[1]
+        value = Card.nameValue(v)
+        suit  = Card.nameSuit(s)
+        c = Card(value=value,suit=suit)
+        h.append(c)
+
+    hands.append(h)
+
+
+# for each hand, remap it for each different possible trump
+for hand in hands:
+    for trump in (0,1,2,3):
+        s = remap(hand,trump)    
+        h = ""
+        for card in hand:
+            h += str(card)
+        print("%s - %s : %s" % (Card.suitName(trump),h,s))
