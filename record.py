@@ -164,9 +164,11 @@ class Record:
     ########################################################################### 
     # This prints some high level info for the record
     #
-    def print(self):
+    def print(self,**kwargs):
         # clear the screen to start
-        os.system('clear')
+        if 'clear' not in kwargs \
+           or ('clear' in kwargs and kwargs['clear'] != False ):
+            os.system('clear')
 
         # compute the run time
         t = time.gmtime(time.time() - self.start)
