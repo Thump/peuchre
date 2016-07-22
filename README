@@ -7,7 +7,7 @@ This is a python client for the euchred euchre server.  It will create up to 4
 players, connect them to a euchre server, and then run a game with them.  Once
 the game is finished, it will create 4 more players and run another game, and
 continue doing this until the heat death of the universe.  The only extant
-player algorithm plays randomly, and so is very stupid, but the EuchrePlayer
+player algorithm plays randomly, which is very stupid, but the EuchrePlayer
 base class in euchreplayer.py can be extended for users to implement their own
 play logic.
 
