@@ -75,6 +75,10 @@ class Record:
     # It then stores the result in a list, so we can compute averages,
     # histograms, sdev, etc.
     # 
+    # We return the remapped string as a convenience: the player will print
+    # this in the log, which will allow us to track back the details on a
+    # specific result
+    #
     def addChand(self, hand, trump, score):
         # track overall hand information
         self.hcount += 1
@@ -111,6 +115,9 @@ class Record:
 
         # write if it's time to
         self.write()
+
+        # return the remap string so the player can log it
+        return remap
 
 
     ###########################################################################
@@ -271,7 +278,7 @@ class Record:
         f.write("team 1: %s\n" % (self.team1))
         f.write("team 2: %s\n" % (self.team2))
         f.write("\n")
-        f.write("hand, ep, details")
+        f.write("hand, ep, details\n")
 
         # step through all remapped hands and print them out
         for hand in sorted(self.chand):
