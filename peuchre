@@ -247,6 +247,10 @@ try:
         playGame(options.server,options.port)
         count += 1
 except KeyboardInterrupt:
-    # means we've been interrupted with ^C: do a final write before we
-    # exit
-    r.writeForce()
+    # means we've been interrupted with ^C: handle it and fall through
+    # to the final write methods
+    print("interrupted")
+
+# do a final print() (just for pretty-ness) and a final forced write
+r.print()
+r.writeForce()
