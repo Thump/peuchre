@@ -29,7 +29,8 @@ class Player(EuchrePlayer):
     #
     def decideOrderPass(self):
         info("")
-        info(self.name+": I will order " + self.state['hole']
+        info(self.id+"cards: " + self.printHand(self.hand))
+        info(self.id+"I will order " + self.state['hole']
             + " to " + self.state[ self.state['dealer'] ]['name'] )
 
         return self.messageId['ORDER']
@@ -45,8 +46,8 @@ class Player(EuchrePlayer):
 
         # log our intent
         info("")
-        info(self.name+": cards: " + self.printHand(self.hand))
-        info(self.name+": gonna drop: " + card)
+        info(self.id+"cards: " + self.printHand(self.hand))
+        info(self.id+"gonna drop: " + card)
 
         return card
 
@@ -68,8 +69,8 @@ class Player(EuchrePlayer):
         (card,) = random.sample(self.hand,1)
 
         # log our intent
-        info(self.name+": cards: " + self.printHand(self.hand))
-        info(self.name+": leading with " + card
+        info(self.id+"cards: " + self.printHand(self.hand))
+        info(self.id+"leading with " + card
             + " (" + self.printHand(self.hand) + ")")
 
         return card
@@ -82,12 +83,12 @@ class Player(EuchrePlayer):
     #
     def decidePlayFollow(self):
         # choose a random card from the set of cards that we can follow with
+        info(self.id+"cards: " + self.printHand(self.hand))
         cards = self.followCards()
         (card,) = random.sample(cards,1)
 
         # log our intent
-        info(self.name+": cards: " + self.printHand(self.hand))
-        info(self.name+": following with " + card
+        info(self.id+"following with " + card
             + " (" + self.printHand(self.hand) + ")")
 
         return card
