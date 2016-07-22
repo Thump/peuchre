@@ -45,9 +45,12 @@ def sendStart(players):
 #    parseMessage() call returns false
 #  - then it exits
 #
-def playGame(server, port):
+def playGame(server, port, **kwargs):
     # print our current stats
     if options.stats: r.print()
+
+    # if we were passed a game count, set it
+    if 'gcount' in kwargs: gcount = kwargs['gcount']
 
     # we use this to track active sockets and players
     inputs = []
@@ -61,19 +64,19 @@ def playGame(server, port):
     # added players to team 0, then team 1, then team 0 again, then team
     # 1 again; after each join, we check if the join succeeded, and if so,
     # we add the player to the list of players and sockets
-    player = Team1(server=server, port=port, name="p0", record=r)
+    player = Team1(server=server,port=port,name="p0t1",record=r,gcount=gcount)
     if player.sendJoin():
         players.append(player)
         inputs.append(player.s)
-    player = Team2(server=server, port=port, name="p1", record=r)
+    player = Team2(server=server,port=port,name="p1t2",record=r,gcount=gcount)
     if player.sendJoin():
         players.append(player)
         inputs.append(player.s)
-    player = Team1(server=server, port=port, name="p2", record=r)
+    player = Team1(server=server,port=port,name="p2t1",record=r,gcount=gcount)
     if player.sendJoin():
         players.append(player)
         inputs.append(player.s)
-    player = Team2(server=server, port=port, name="p3", record=r)
+    player = Team2(server=server,port=port,name="p3t2",record=r,gcount=gcount)
     if player.sendJoin():
         players.append(player)
         inputs.append(player.s)
@@ -171,7 +174,7 @@ parser.add_option("-n", "--numgames",
 # we have two types of formatters: one for the file (with more detailed
 # timing and message levels) and a more compact one for stdout
 fhfmt = logging.Formatter(
-    fmt="%(asctime)s.%(msecs)03d :: %(levelname)s :: %(message)s",
+    fmt="%(asctime)s.%(msecs)03d :: %(message)s",
     datefmt='%Y-%m-%d %H:%M:%S')
 chfmt = logging.Formatter(
     fmt="%(asctime)s :: %(message)s",
@@ -179,7 +182,7 @@ chfmt = logging.Formatter(
 
 # get the root logger
 logger = logging.getLogger('')
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 # make a console handler and add it, if neither quiet nor stats are enabled
 if not options.quiet and not options.stats:
@@ -244,7 +247,7 @@ except AttributeError:
 count = 0
 try:
     while count < options.numgames:
-        playGame(options.server,options.port)
+        playGame(options.server,options.port,gcount=count)
         count += 1
 except KeyboardInterrupt:
     # means we've been interrupted with ^C: handle it and fall through
@@ -252,5 +255,5 @@ except KeyboardInterrupt:
     print("interrupted")
 
 # do a final print() (just for pretty-ness) and a final forced write
-r.print()
+r.print(clear=False)
 r.writeForce()
