@@ -1299,7 +1299,7 @@ class EuchrePlayer:
         #   <msg> : <msglen> <PLAYOFFER> <ph> <tail>
         # it's really just a notification message, unless we're the <ph>
         (msg, ph) = struct.unpack_from("!ii",bytes)
-        info("")
+        #info("")
         #info(self.id+"got PLAYOFFER for %s" % (self.state[ph]['name']))
 
         # check we have a valid tail
@@ -1359,7 +1359,6 @@ class EuchrePlayer:
         # we don't want to clutter the log by reporting all instances
         # of the trick over message, so we only print it for the maker
         if self.playerhandle == self.state['maker']:
-            info("")
             if self.state['trickdelta'] < 0: wl="lost"
             elif self.state['trickdelta'] > 0: wl="won"
             else: wl="bad bad bad"
