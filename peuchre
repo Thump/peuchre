@@ -83,7 +83,14 @@ def playGame(server, port, **kwargs):
 
     # loop across our player sockets checking for input to process
     while players:
-        readable, writable, exceptional = select.select(inputs, [], inputs)
+        readable, writable, exceptional = select.select(inputs, [], [], 30)
+
+        # if there are no results in inputs, then we hit the timeout, which
+        # probably means something went wrong (a client died?) and we should
+        # just reset the whole thing
+        if len(readable) == 0:
+            error("uh-oh, hit timeout, terminating game")
+            sys.exit()
 
         # loop across each readable socket
         for player in players:
