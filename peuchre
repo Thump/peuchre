@@ -8,11 +8,13 @@ import select
 from optparse import OptionParser
 from logging import warning as warn, log, debug, info, error, critical
 
+from record import Record
+
 
 ###########################################################################
 # This returns true if all 4 players are in joined state, false otherwise
 #
-def allJoined():
+def allJoined(players):
     # default to true
     state = True
 
@@ -28,7 +30,7 @@ def allJoined():
 # This sends a start message to begin the game: it figures out who the
 # creator is and sends a message as that person
 #
-def sendStart():
+def sendStart(players):
     # figure out the creator
     for player in players:
         if player.state['creator'] == 1:
@@ -37,9 +39,91 @@ def sendStart():
 
 
 ###########################################################################
+# This routine plays a game:
+#  - it instantiates 4 players and connects them to the server
+#  - it serves messages from the server to the players until a
+#    parseMessage() call returns false
+#  - then it exits
+#
+def playGame(server, port):
+    # print our current stats
+    if options.stats: r.print()
+
+    # we use this to track active sockets and players
+    inputs = []
+    players = []
+
+    # we track whether we've sent a start message or not
+    started = 0
+
+    # first we create up to 4 players and join them to the server: we
+    # stagger the player joins by team, since the server will assign the
+    # added players to team 0, then team 1, then team 0 again, then team
+    # 1 again; after each join, we check if the join succeeded, and if so,
+    # we add the player to the list of players and sockets
+    player = Team1(server=server, port=port, name="p0", record=r)
+    if player.sendJoin():
+        players.append(player)
+        inputs.append(player.s)
+    player = Team2(server=server, port=port, name="p1", record=r)
+    if player.sendJoin():
+        players.append(player)
+        inputs.append(player.s)
+    player = Team1(server=server, port=port, name="p2", record=r)
+    if player.sendJoin():
+        players.append(player)
+        inputs.append(player.s)
+    player = Team2(server=server, port=port, name="p3", record=r)
+    if player.sendJoin():
+        players.append(player)
+        inputs.append(player.s)
+
+    # loop across our player sockets checking for input to process
+    while players:
+        readable, writable, exceptional = select.select(inputs, [], inputs)
+
+        # loop across each readable socket
+        for player in players:
+            if player.s in readable:
+                if not player.parseMessage():
+                    players.remove(player)
+                    inputs.remove(player.s)
+
+        # Ugh, the server doesn't support a STARTOFFER message (yet), so
+        # we need to detect when we have 4 connected players to know when
+        # to start
+        if players and allJoined(players):
+            # this sends the start message: let the games begin!
+            if players[0].state['hstate'] == 0 and started != 1:
+                info("")
+                info("game: everyone is joined, sending start %d" % (started))
+                sendStart(players)
+                started = 1
+
+    # if we get here, all the clients have left, so we just return and a
+    # new game will be triggered
+    return
+
+
+###########################################################################
 # parse our options
 
 parser = OptionParser()
+
+# add an option to specify the euchred server
+parser.add_option("-s", "--server",
+                  dest="server",
+                  default="127.0.0.1",
+                  action="store",
+                  help="name of the euchred server to contact")
+
+# add an option to specify the euchred port
+parser.add_option("-p", "--port",
+                  type="int",
+                  dest="port",
+                  default=1234,
+                  action="store",
+                  help="port of the euchred server to contact")
 
 # add an option to reduce the chatty-ness of the logs: this doesn't do very
 # much as yet
@@ -49,19 +133,34 @@ parser.add_option("-q", "--quiet",
                   action="store_true",
                   help="don't print anything to stdout")
 
+# add an option to enable stats output: this shows a live view of the data
+# being gathered; this automatically implies -q
+parser.add_option("--stats",
+                  dest="stats",
+                  default=False,
+                  action="store_true",
+                  help="show live stats, implies --quiet")
+
 # add an option to set the team 0 class name: if we don't have a class name,
 # we default to the random player
-parser.add_option("-0", "--team0",
-                  dest="team0",
+parser.add_option("-1", "--team1",
+                  dest="team1",
                   default='randomplayer',
                   help="set the class name for Team 0 players")
 
 # add an option to set the team 1 class name: if we don't have a class name,
 # we default to the random player
-parser.add_option("-1", "--team1",
-                  dest="team1",
+parser.add_option("-2", "--team2",
+                  dest="team2",
                   default='randomplayer',
                   help="set the class name for Team 1 players")
+
+# add an option to set the number of games to play, default to a large value
+parser.add_option("-n", "--numgames",
+                  type="int",
+                  dest="numgames",
+                  default=999999999,
+                  help="set the number of games to loop for")
 
 (options, args) = parser.parse_args()
 
@@ -82,8 +181,8 @@ chfmt = logging.Formatter(
 logger = logging.getLogger('')
 logger.setLevel(logging.DEBUG)
 
-# make a console handler and add it, if quiet isn't enabled
-if not options.quiet:
+# make a console handler and add it, if neither quiet nor stats are enabled
+if not options.quiet and not options.stats:
     ch = logging.StreamHandler(sys.stdout)
     ch.setFormatter(chfmt)
     logger.addHandler(ch)
@@ -95,42 +194,22 @@ logger.addHandler(fh)
 
 
 ###########################################################################
-# some other initialization
-
-# we track whether we've sent a start message or not
-started = 0
-
-# this will be the list of active sockets to run select on
-inputs = []
-players = []
-
-###########################################################################
 # mainline
 
 info("This is peuchre")
 
+# create a Record object: we'll pass this to the clients, and they'll use
+# it to record data about their hands: we provide the name of the team
+# algorithms so Record can include it in the status output
+r = Record(team1=options.team1,team2=options.team2)
+
 # take
-Team0 = __import__(options.team0, globals(), locals(), ['Player'], 0).Player
 Team1 = __import__(options.team1, globals(), locals(), ['Player'], 0).Player
+Team2 = __import__(options.team2, globals(), locals(), ['Player'], 0).Player
 
 # ok, I know Python is supposed to be EFAP, but I think it's a better idea
 # to check that the player classes are providing the necessary methods
 # before, since we can handle it more gracefully once
-try:
-    callable(Team0.decideOrderPass)
-    callable(Team0.decideDrop)
-    callable(Team0.decideDefend)
-    callable(Team0.decidePlayLead)
-    callable(Team0.decidePlayFollow)
-except AttributeError:
-    info("")
-    error("Hmm, the Team0 class ('%s') isn't providing all"
-        % (options.team0))
-    error("the necessary methods:")
-    for method in ("decideOrderPass()","decideDrop()","decideDefend()",
-        "decidePlayLead()","decidePlayFollow()"):
-        info(method)
-
 try:
     callable(Team1.decideOrderPass)
     callable(Team1.decideDrop)
@@ -146,53 +225,28 @@ except AttributeError:
         "decidePlayLead()","decidePlayFollow()"):
         info(method)
 
+try:
+    callable(Team2.decideOrderPass)
+    callable(Team2.decideDrop)
+    callable(Team2.decideDefend)
+    callable(Team2.decidePlayLead)
+    callable(Team2.decidePlayFollow)
+except AttributeError:
+    info("")
+    error("Hmm, the Team2 class ('%s') isn't providing all"
+        % (options.team2))
+    error("the necessary methods:")
+    for method in ("decideOrderPass()","decideDrop()","decideDefend()",
+        "decidePlayLead()","decidePlayFollow()"):
+        info(method)
 
-# now we create up to 4 players and join them to the server: we stagger the
-# player joins by team, since the server will assign the added players to team
-# 0, then team 1, then team 0 again, then team 1 again; after each join, we
-# check if the join succeeded, and if so, we add the player to the list of
-# players and sockets
-player = Team0(server="127.0.0.1", port=1234, name="p0")
-if player.sendJoin():
-    players.append(player)
-    inputs.append(player.s)
-player = Team1(server="127.0.0.1", port=1234, name="p1")
-if player.sendJoin():
-    players.append(player)
-    inputs.append(player.s)
-player = Team0(server="127.0.0.1", port=1234, name="p2")
-if player.sendJoin():
-    players.append(player)
-    inputs.append(player.s)
-player = Team1(server="127.0.0.1", port=1234, name="p3")
-if player.sendJoin():
-    players.append(player)
-    inputs.append(player.s)
-
-# loop across our player sockets checking for input to process
-while inputs:
-    readable, writable, exceptional = select.select(inputs, [], inputs)
-
-    # loop across each readable socket
-    for player in players:
-        if player.s in readable:
-            player.parseMessage()
-
-    # each time through, we drive game state forward by checking to see
-    # the current hand state
-    #  - if pregame (0), and all players joined, send start
-    #  - if hole (1), then someone has an option to order the hole card
-    #  - if trump (2), then someone has an option to call trump
-    #  - if defend (3), then someone has an option to defend alone
-    #  - if play (4), then someone has an option to play
-    #
-    # the game state is sent to all players, but it should be the same
-    # for them all, so we check it against player 0, but it would work
-    # to check it against any other player too
-    if allJoined():
-        # this sends the start message: let the games begin!
-        if players[0].state['hstate'] == 0 and started != 1:
-            info("")
-            info("game: everyone is joined, sending start %d" % (started))
-            sendStart()
-            started = 1
+# we use this to keep count of the number of games we've done
+count = 0
+try:
+    while count < options.numgames:
+        playGame(options.server,options.port)
+        count += 1
+except KeyboardInterrupt:
+    # means we've been interrupted with ^C: do a final write before we
+    # exit
+    r.writeForce()
