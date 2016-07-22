@@ -1,3 +1,317 @@
+commit 150aea06a03f5247b3b9018777dff1fd93977ab7
+Author: Denis McLaughlin <mclaughlin.denis@gmail.com>
+Date:   Fri Jul 22 17:24:20 2016 -0600
+
+    Minor changes to README
+
+commit 2baaa8acf431ef9c868d23e123a57f0116533447
+Author: Denis McLaughlin <mclaughlin.denis@gmail.com>
+Date:   Fri Jul 22 17:13:34 2016 -0600
+
+    Added timeout detection
+    
+     - added a timeout value to the select() call: this detects cases where the
+       server and peuchre have gotten out of sync, and prevents peuchre from
+       hanging; if there has been no activity from the server for 30 seconds,
+       peuchre will terminate the game and start another
+     - added an option, --notimeout, to allow this timeout to be overridden:
+       you'd need this to play a manual client along with peuchre, since the
+       human player may not respond inside the 30s window
+
+commit def4257d6b564b9ecb394af89d15391599afe0ac
+Author: Denis McLaughlin <mclaughlin.denis@gmail.com>
+Date:   Fri Jul 22 17:13:11 2016 -0600
+
+    Tidied some log messages
+
+commit 1f0cb39da641e8db70c3d317c6c3231070a4fffd
+Author: Denis McLaughlin <mclaughlin.denis@gmail.com>
+Date:   Fri Jul 22 17:11:53 2016 -0600
+
+    Initial README file
+
+commit 11c68f449744b66c092d2a1745d3b90d4e89f80e
+Author: Denis McLaughlin <mclaughlin.denis@gmail.com>
+Date:   Fri Jul 22 14:16:18 2016 -0600
+
+    Added a timeout to the select
+    
+     - I saw a case where a player died unexpectedly and the game hung up: if
+       30s passes with no activity in the game, select() will timeout, and the
+       game will be terminated
+
+commit a5977d6f319450212c481a730415a5ae2894c153
+Author: Denis McLaughlin <mclaughlin.denis@gmail.com>
+Date:   Fri Jul 22 13:37:30 2016 -0600
+
+    Don't clear the screen if the clear kwarg is set to false
+
+commit a324b0417fdfcdaa06df91803c8eccef587747ff
+Author: Denis McLaughlin <mclaughlin.denis@gmail.com>
+Date:   Fri Jul 22 13:36:53 2016 -0600
+
+    Logging changes
+    
+     - we now log self.id rather than self.name before each log message
+
+commit 0d15e97559cc4fe0daa240aa8a4a20b41db80576
+Author: Denis McLaughlin <mclaughlin.denis@gmail.com>
+Date:   Fri Jul 22 13:33:58 2016 -0600
+
+    Changes related to game counts and logging
+    
+     - added **kwargs to playGame(), and we pass in gcount from the mainline,
+       and playGame() will in turn pass it on to the players; this lets the
+       player objects track the game count, even though they are instantiated
+       new for each game
+     - changed player names from "p0", "p1", etc, to "p0t1", "p1t2", to make it
+       easier to determine who is on which team
+     - removed log level info from the file logging, since it wasn't useful
+     - removed DEBUG logs from file logging
+     - made it so the final stats print doesn't clear the screen, since it was
+       clearing all xterm history
+
+commit 9902f33610b7bd86757828a1bf88a8f08e2d992a
+Author: Denis McLaughlin <mclaughlin.denis@gmail.com>
+Date:   Fri Jul 22 13:30:45 2016 -0600
+
+    Changes relating to logging
+    
+     - we track trick deltas now, and report them in the log at the end of
+       each trick
+     - previously each log message was preceded by the client name; I changed
+       this to a combined name + game/hand/trick count, to make it easier to
+       track log messages related to each game
+     - there's a setId() which will set the id string, all instances of
+       info(self.name+ have been changed to info(self.id+
+     - removed some other messages to tidy log output
+
+commit e22c435e635dc0c1beee9dece1cc85ba1cf227b6
+Author: Denis McLaughlin <mclaughlin.denis@gmail.com>
+Date:   Fri Jul 22 11:09:03 2016 -0600
+
+    Return the remapped hand string from addChand()
+    
+     - by returning the remapped calling hand, it will be stored in the
+       peuchre.log file, which will allow us to track the details of any
+       hand; I think this is needed because in initial runs, I was seeing
+       euchres on some surprisingly powerful hands, so I want to be able to
+       confirm the behaviour
+
+commit f6f6d80d28e556c925ceca787c22e56176634d17
+Author: Denis McLaughlin <mclaughlin.denis@gmail.com>
+Date:   Fri Jul 22 11:06:28 2016 -0600
+
+    Added tracking of the remapped calling hand
+    
+     - by capturing the remapped calling hand, it will be stored in the
+       peuchre.log file, which will allow us to track the details of any
+       hand; I think this is needed because in initial runs, I was seeing
+       euchres on some surprisingly powerful hands, so I want to be able to
+       confirm the behaviour
+
+commit a5940732951033d0008c8335701cb45cc022da1c
+Author: Denis McLaughlin <mclaughlin.denis@gmail.com>
+Date:   Fri Jul 22 01:48:32 2016 -0600
+
+    Minor change to keyboard handler
+
+commit 8da612d0119a170d27fbde26b0eb88f5f32dcbc6
+Author: Denis McLaughlin <mclaughlin.denis@gmail.com>
+Date:   Fri Jul 22 01:39:21 2016 -0600
+
+    Lots of changes related to stats gathering
+    
+     - added creation of Record object, and passing it to the Players as we
+       create them, so they can record information
+     - moved the game play logic from the mainline into a playGame() function:
+       this lets us call it repeatedly, which is key to having the peuchre
+       script capable of playing more than one game in a row, which we need to
+       track stat information
+     - because the players information is now local to playGame(), the
+       allJoined() and sendStart() routines now take the players list as an
+       argument
+     - the playGame() uses the return value of parseMessage() to determine if
+       the player is still valid: if parseMessage() returns false, the player
+       isn't valid, and is removed from the players list; as players receive
+       the GAMEOVER message, they return false, and are removed, and once all
+       are removed, the while loop in playGame exits and returns control to the
+       mainline, which then triggers another game
+     - added options to specify the server and port, and to specify whether
+       the live stats view should be enabled; if the stats view is enabled,
+       then quiet is automatically enabled
+     - added an option to specify the number of games to loop for
+     - changed the option names that specify the team classes, to synch with the
+       change from 0-1 to 1-2
+     - add a keyboard exception handler, to catch ^C and do a final print() and
+       writeForce() on the Record object
+
+commit 678a70185af7e53a713e99cecc2a205a386347d7
+Author: Denis McLaughlin <mclaughlin.denis@gmail.com>
+Date:   Fri Jul 22 01:28:06 2016 -0600
+
+    Lots of changes, mostly around record keeping
+    
+     - the __init__() method supports receiving a record object (via kwargs),
+       which will be used to record various stats during hand play
+     - fixed major bug with parsing tricks and score results from STATE messages:
+       I had thought the range was 0-1, but it was actually 1-2, bleh, stupid
+       Denis
+     - object now monitors score changes, so we can report score deltas to the
+       record object
+     - store the original hand information in self.originalhand, so we can report
+       the full hand at the end of the hand (self.hand is modified as we play)
+     - at end of each hand, the maker logs the hand they made, the trump, and
+       the score delta, for tracking in the Record object
+     - when each player follows, they log the number of cards in their hand and
+       the number of playable cards, for tracking in the Record object
+     - made return values of various sub-parseMessage() calls more consistent:
+       now a True return from parseMessage() means normal and False means the
+       client is borked and should be killed; this was generally true before,
+       but now that the mainline expects a false to indicate game end, I made the
+       handling of this more consistent
+     - changed some messages that were logged from player 0 to be logged from the
+       maker; doesn't priviledge player 0, and is more useful for debugging, since
+       the maker's view is key (some places still use player 0, if it's before the
+       maker is determined)
+     - tweaked all return calls to use spaces rather than parens
+     - miscellaneous minor comment fixes
+
+commit 8ff96c7bb905f66994c9bcf32f5cf049f6589068
+Author: Denis McLaughlin <mclaughlin.denis@gmail.com>
+Date:   Fri Jul 22 01:14:35 2016 -0600
+
+    New object used to track stats from each of the players
+    
+     - it tracks game related data, calling hand data, and follow data
+     - writes relevant data to a file every 60 seconds
+     - can print live information to the screen
+
+commit 13415020eb6b14aa730983b6b00eef0e779eaefd
+Author: Denis McLaughlin <mclaughlin.denis@gmail.com>
+Date:   Thu Jul 21 15:49:08 2016 -0600
+
+    Some changes to support the coming record object
+    
+     - added a misc/ dir with a couple of utility scripts in them: nothing
+       really useful, just handy to have around
+     - some changes to card.py: it allows use of T or 10 as the value of the
+       10 card, and adds a routine to map from suit index to name
+
+commit bce88d4042b1bc588bde97129eaf7827636b250c
+Author: Denis McLaughlin <mclaughlin.denis@gmail.com>
+Date:   Sat Jul 16 01:36:52 2016 -0600
+
+    Some white space tidying
+
+commit a3960d28e0e1aa3a36434ab62b60003ba860d429
+Author: Denis McLaughlin <mclaughlin.denis@gmail.com>
+Date:   Sat Jul 16 01:35:47 2016 -0600
+
+    Changes to support user specification of classes for team 0 and team 1
+    
+     - added a new file, randomplayer.py: it implements Player, which is
+       a working example of the sub-class euchre player
+     - renamed euchreclient.py to euchreplayer.py, to keep the terminology
+       consistent
+     - renamed the class inside euchreplayer.py from EuchreClient to
+       EuchrePlayerb, to keep the terminology consistent
+     - moved the actual decision making of the sendOrderPass(), sendDrop(),
+       sendDefend(), sendPlayLead(), and sendPlayFollow() methods in EuchrePlayer
+       to method that are called decideOrderPass(), decideDrop(), decideDefend(),
+       decidePlayLead(), and decidePlayFollow() respectively: these methods are
+       expected to be implemented in the real player class, which in this case
+       is found in the randomplayer.py file
+     - all log output from these routines are moved to the sub-class: the parent
+       EuchrePlayer class should be as silent as possible to leave the logging
+       logic in the real player class
+     - in the mainline script, added options for --team0 and --team1: with these,
+       we can specify the class name of the classes to be used for team 0 and
+       team 1; these options default to randomplayer (the provided player class)
+     - we instantiate the named team classes via __import__, and check that they
+       implement the required methods via the callable() method
+
+commit 89aeaa2ef9bc80af4288440220f7138463c25386
+Author: Denis McLaughlin <mclaughlin.denis@gmail.com>
+Date:   Mon Jul 11 21:08:26 2016 -0600
+
+    Changes to play with <4 clients: this lets a manual client play with the automated clients
+    
+     - the sendJoin() method in the client now directly checks for a JOINACCEPT,
+       JOINDENY, or DECLINE message, and returns true or false, to let the
+       code calling sendJoin() to determine if it was successful
+     - initialize some variables in the client constructor
+     - parse out the reason string from the JOINDENY message
+     - add the parseDecline() handler
+     - promote the state and creator attributes for the client to the client's
+       state[] dict
+     - make changes in the mainline so we're not dependent on a specific number
+       of clients
+     - remove some old code
+
+commit 8efd3e9d2fafb6af6043f5d479fc93fcd1fb8b95
+Author: Denis McLaughlin <mclaughlin.denis@gmail.com>
+Date:   Mon Jul 11 14:17:06 2016 -0600
+
+    Removed some obsolete code related to ordering
+
+commit 2270c24e285a63b3a2a9faebe998640b3f5be0f2
+Author: Denis McLaughlin <mclaughlin.denis@gmail.com>
+Date:   Sun Jul 10 22:01:38 2016 -0600
+
+    Woo hoo, a full game can now be played!
+    
+     - added a printScore() method, split the status() method into gameStatus()
+       and playerStatus(), so we can be more selective about what we print
+     - various minor logging changes, to reduce chattyness and improve
+       readability
+     - changed self.hand from a set to a list, since it made it easier to
+       selectively remove items from it
+     - general rewrite of sendPlayLead(), sendPlayFollow() to accomodate change
+       to self.hand type
+     - added a removeCard() function, to accomodate changes to self.hand type
+     - added handlers for HANDOVER and GAMEOVER messages
+     - changes to followCards() method, to fix bugs: the left was being added
+       as a valid card for its nominal suit rather than its effective suit
+     - added stats output to followCards() to generate stats to see what the
+       follow % of different tricks in the hand are: mmmm, dataaaaaa
+     - made logging to peuchre.log append, so we can keep data from multiple
+       runs
+
+commit 23b2e107888c458df7f4fda937befda8e0e6d515
+Author: Denis McLaughlin <mclaughlin.denis@gmail.com>
+Date:   Sat Jul 9 22:10:31 2016 -0600
+
+    More changes to support a full game
+    
+     - added suitName(), valueName(), and nameValue() static methods to the
+       Card class, to support mapping back and forth
+     - reformatted log output format
+     - greatly cut down on logging chatty-ness, to make it easier to parse
+       what's going on in the game
+     - split sendPlay() into sendPlayLead() and sendPlayFollow(), because
+       the logic is very different between the two
+     - sendPlayFollow() calls followCards() to generate list of playable
+       cards
+     - added processing for PLAYOFFER, PLAYDENY, and TRICKOVER messages
+     - changed printHand() to take an argument, so that it can be passed
+       a set of playable cards (for example) and print them
+
+commit eca24a3f4e7c65225596cae8e0c22236f1aadcc9
+Author: Denis McLaughlin <mclaughlin.denis@gmail.com>
+Date:   Fri Jul 8 02:27:17 2016 -0600
+
+    changes to support ordering, dropping, and defending
+    
+     - rename euchred.py to euchre-client.py
+     - rename class in euchre-client.py to EuchreClient
+     - made order offer self-driving: when a player receives an orderoff for
+       itself, it will respond: this means I don't need to drive the order
+       from the mainline script
+     - implemented a sendDrop() as a response to a drop offer
+     - implemented a sendDefend() as a response to a defend offer, but getting
+       a DEFENDENY on what should be a valid DEFENDPASS
+
 commit 70b79e96411c1dab50e4a9ea8235a7f5a6a6e4bf
 Author: Denis McLaughlin <mclaughlin.denis@gmail.com>
 Date:   Tue Jul 5 21:14:35 2016 -0600
