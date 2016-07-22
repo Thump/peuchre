@@ -1362,8 +1362,13 @@ class EuchrePlayer:
             info(self.name+": hand is over")
             self.printScore()
             info(self.name+": score delta: %d" % (self.state['scoredelta']))
-            self.record.addChand(
+            remap = self.record.addChand(
                 self.originalHand,self.state['trump'],self.state['scoredelta'])
+            info(self.name+": original hand: %s, trump: %s"
+                % (self.printHand(self.originalHand),
+                   Card.suitName(self.state['trump'])))
+            info(self.name+": remapped hand: %s" % (remap))
+            sys.exit()
 
         return True
 
