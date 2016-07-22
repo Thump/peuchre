@@ -138,9 +138,11 @@ class EuchrePlayer:
         self.state[3] = {}
         self.state['state'] = 0
 
-        # initialize scores to 0
+        # initialize scores and tricks to 0
         self.state['usscore']   = 0
         self.state['themscore'] = 0
+        self.state['ustricks']   = 0
+        self.state['themtricks'] = 0
 
         # randomize that name!
         self.name = ''.join(random.SystemRandom().choice(string.ascii_uppercase + string.digits) for _ in range(10))
@@ -157,12 +159,31 @@ class EuchrePlayer:
         if 'record' in kwargs:
             self.record = kwargs['record']
 
+        # we use this to ID hands in the log
+        self.gcount = 0
+        if 'gcount' in kwargs:
+            self.gcount = kwargs['gcount']
+        self.hcount = 0
+        self.tcount = 0
+        self.setId()
+
+
+    ###########################################################################
+    # This is a utility function to set the self.id string: it uses the
+    # game, hand, and trick count variables to compose a self.id string
+    # which is included in every log message, to make the log files easier
+    # to parse.
+    #
+    def setId(self):
+        self.id = \
+            "%s g%dh%dt%d : " % (self.name,self.gcount,self.hcount,self.tcount)
+
 
     ###########################################################################
     # prints the score
     #
     def printScore(self):
-        info(self.name+": score us:%d  them:%d" %
+        info(self.id+"score us:%d  them:%d" %
             (self.state['usscore'],self.state['themscore']) )
 
 
@@ -171,14 +192,14 @@ class EuchrePlayer:
     #
     def status(self):
         info("")
-        info(self.name+": My Status")
-        info(self.name+":     server: " + self.server)
-        info(self.name+":     port  : " + str(self.port))
+        info(self.id+"My Status")
+        info(self.id+"    server: " + self.server)
+        info(self.id+"    port  : " + str(self.port))
         info("")
-        info(self.name+":     Name  : " + str(self.name))
-        info(self.name+":     Player: " + str(self.playerhandle))
-        info(self.name+":     Team  : " + str(self.team))
-        info(self.name+":     Game  : " + str(self.gamehandle))
+        info(self.id+"    Name  : " + str(self.name))
+        info(self.id+"    Player: " + str(self.playerhandle))
+        info(self.id+"    Team  : " + str(self.team))
+        info(self.id+"    Game  : " + str(self.gamehandle))
 
         # just the game stuff
         self.gameStatus()
@@ -194,27 +215,27 @@ class EuchrePlayer:
     #
     def gameStatus(self):
         info("")
-        info(self.name+": Game Status:")
-        info(self.name+":     Score : %d vs %d"
+        info(self.id+"Game Status:")
+        info(self.id+"    Score : %d vs %d"
             % (self.state['usscore'],self.state['themscore']))
-        info(self.name+":     Tricks: %d vs %d"
+        info(self.id+"    Tricks: %d vs %d"
             % (self.state['ustricks'],self.state['themtricks']))
-        info(self.name+":     Game Started: %d" % (self.state['ingame']))
-        info(self.name+":     Hand Status : %d" % (self.state['hstate']))
-        info(self.name+":     options:")
-        info(self.name+":         Can Defend Alone:       %d"
+        info(self.id+"    Game Started: %d" % (self.state['ingame']))
+        info(self.id+"    Hand Status : %d" % (self.state['hstate']))
+        info(self.id+"    options:")
+        info(self.id+"        Can Defend Alone:       %d"
             % (self.state['defend']))
-        info(self.name+":         Must Go Alone on Order: %d"
+        info(self.id+"        Must Go Alone on Order: %d"
             % (self.state['aloneonorder']))
-        info(self.name+":         Screw the Dealer:       %d"
+        info(self.id+"        Screw the Dealer:       %d"
             % (self.state['screw']))
-        info(self.name+":     Number of cards: %d (%s)"
+        info(self.id+"    Number of cards: %d (%s)"
             % (self.state['numcards'], self.printHand(self.hand)) )
-        info(self.name+":     Trump is Set: %d" % (self.state['trumpset']))
+        info(self.id+"    Trump is Set: %d" % (self.state['trumpset']))
         if not self.state['holein']:
-            info(self.name+":     Hole Card: not dealt")
+            info(self.id+"    Hole Card: not dealt")
         else:
-            info(self.name+":     Hole Card: " + self.state['hole'])
+            info(self.id+"    Hole Card: " + self.state['hole'])
 
 
     ###########################################################################
@@ -228,30 +249,30 @@ class EuchrePlayer:
 
             # otherwise print all the info
             info("")
-            info(self.name+": Player %d:" % (i))
-            info(self.name+":     Name: %s" % (self.state[i]['name']))
-            info(self.name+":     Team: %d" % (self.state[i]['team']))
-            info(self.name+":     Dealer: %d" % (self.state[i]['dealer']))
-            info(self.name+":     Ordered: %d" % (self.state[i]['ordered']))
-            info(self.name+":     Passed: %d" % (self.state[i]['passed']))
-            info(self.name+":     Made It: %d" % (self.state[i]['maker']))
-            info(self.name+":     Alone: %d" % (self.state[i]['alone']))
-            info(self.name+":     Lead: %d" % (self.state[i]['leader']))
-            info(self.name+":     Creator: %d" % (self.state[i]['creator']))
-            info(self.name+":     Offers:")
-            info(self.name+":         Drop: %d" % (self.state[i]['dropoffer']))
-            info(self.name+":         Order: %d"
+            info(self.id+"Player %d:" % (i))
+            info(self.id+"    Name: %s" % (self.state[i]['name']))
+            info(self.id+"    Team: %d" % (self.state[i]['team']))
+            info(self.id+"    Dealer: %d" % (self.state[i]['dealer']))
+            info(self.id+"    Ordered: %d" % (self.state[i]['ordered']))
+            info(self.id+"    Passed: %d" % (self.state[i]['passed']))
+            info(self.id+"    Made It: %d" % (self.state[i]['maker']))
+            info(self.id+"    Alone: %d" % (self.state[i]['alone']))
+            info(self.id+"    Lead: %d" % (self.state[i]['leader']))
+            info(self.id+"    Creator: %d" % (self.state[i]['creator']))
+            info(self.id+"    Offers:")
+            info(self.id+"        Drop: %d" % (self.state[i]['dropoffer']))
+            info(self.id+"        Order: %d"
                 % (self.state[i]['orderoffer']))
-            info(self.name+":         Call: %d" % (self.state[i]['calloffer']))
-            info(self.name+":         Play: %d" % (self.state[i]['playoffer']))
-            info(self.name+":         Defend: %d"
+            info(self.id+"        Call: %d" % (self.state[i]['calloffer']))
+            info(self.id+"        Play: %d" % (self.state[i]['playoffer']))
+            info(self.id+"        Defend: %d"
                 % (self.state[i]['defendoffer']))
 
             # if the player has a card in play, show it
             if self.state[i]['cardinplay']:
-                info(self.name+":     Card Played: " + self.state[i]['card'])
+                info(self.id+"    Card Played: " + self.state[i]['card'])
             else:
-                info(self.name+":     Card Played: none")
+                info(self.id+"    Card Played: none")
 
 
     ###########################################################################
@@ -298,22 +319,22 @@ class EuchrePlayer:
 
         # read the specified number of bytes from the socket
         bytes = self.s.recv(size)
-        #info(self.name+": len of bytes is " + str(len(bytes)))
+        #info(self.id+"len of bytes is " + str(len(bytes)))
 
         # decode the message identifier
         (id,) = struct.unpack_from("!i",bytes)
-        #info(self.name+": message is: %s (%d)" % (self.messageName[id],id))
+        #info(self.id+"message is: %s (%d)" % (self.messageName[id],id))
 
         # now we mung out a case switch on the message identifier
         if ( id == self.messageId['JOINACCEPT'] ):
-            info(self.name+": join successful")
+            info(self.id+"join successful")
             return self.parseJoinAccept(bytes)
         elif ( id == self.messageId['JOINDENY'] ):
             return self.parseJoinDeny(bytes)
         elif ( id == self.messageId['DECLINE'] ):
             return self.parseDecline(bytes)
         else:
-            info(self.name+": unknown join response: %s (%d)" %
+            info(self.id+"unknown join response: %s (%d)" %
                 (self.messageName[id],id))
             return self.badMessage(bytes)
 
@@ -498,7 +519,7 @@ class EuchrePlayer:
             self.messageId['TAIL2'],
         )
 
-        #info(self.name+": sending PLAY")
+        #info(self.id+"sending PLAY")
         #self.printMessage(message)
         self.s.send(message)
 
@@ -535,7 +556,7 @@ class EuchrePlayer:
             self.messageId['TAIL2'],
         )
 
-        #info(self.name+": sending PLAY")
+        #info(self.id+"sending PLAY")
         #self.printMessage(message)
         self.s.send(message)
 
@@ -550,11 +571,11 @@ class EuchrePlayer:
 
         # read the specified number of bytes from the socket
         bytes = self.s.recv(size)
-        #info(self.name+": len of bytes is " + str(len(bytes)))
+        #info(self.id+"len of bytes is " + str(len(bytes)))
 
         # decode the message identifier
         (id,) = struct.unpack_from("!i",bytes)
-        #info(self.name+": message is: %s (%d)" % (self.messageName[id],id))
+        #info(self.id+"message is: %s (%d)" % (self.messageName[id],id))
 
         # now we mung out a case switch on the message identifier
         if ( id == self.messageId['JOINACCEPT'] ):
@@ -588,7 +609,7 @@ class EuchrePlayer:
         elif ( id == self.messageId['GAMEOVER'] ):
             return self.parseGameOver(bytes)
         else:
-            info(self.name+": message is: %s (%d)" % (self.messageName[id],id))
+            info(self.id+"message is: %s (%d)" % (self.messageName[id],id))
             return self.badMessage(bytes)
 
 
@@ -596,7 +617,7 @@ class EuchrePlayer:
     # This routine parses a JOINACCEPT message
     #
     def parseJoinAccept(self, bytes):
-        #debug(self.name+": parsing JOINACCEPT")
+        #debug(self.id+"parsing JOINACCEPT")
         #self.printMessage(bytes)
 
         # the format of a JOINACCEPT message is:
@@ -606,7 +627,7 @@ class EuchrePlayer:
 
         # run some sanity checks
         if tail1 != self.messageId['TAIL1'] or tail2 != self.messageId['TAIL2']:
-            error(self.name+": bad tail value in parseJoinAccept()")
+            error(self.id+"bad tail value in parseJoinAccept()")
             return False
 
         # ok, otherwise we carry on
@@ -621,7 +642,7 @@ class EuchrePlayer:
     # This routine parses a JOINDENY message
     #
     def parseJoinDeny(self, bytes):
-        #debug(self.name+": parsing JOINDENY")
+        #debug(self.id+"parsing JOINDENY")
         #self.printMessage(bytes)
 
         # the format of a JOINDENY message is:
@@ -629,7 +650,7 @@ class EuchrePlayer:
         # where the string explains why it was denied
         message = self.parseString(bytes[4:-2])
 
-        info(self.name+": join denied: " + message)
+        info(self.id+"join denied: " + message)
 
         return(False)
 
@@ -638,7 +659,7 @@ class EuchrePlayer:
     # This routine parses a DECLINE message
     #
     def parseDecline(self, bytes):
-        #debug(self.name+": parsing DECLINE")
+        #debug(self.id+"parsing DECLINE")
         #self.printMessage(bytes)
 
         # the format of a DECLINE message is:
@@ -646,7 +667,7 @@ class EuchrePlayer:
         # where the string explains why it was denied
         message = self.parseString(bytes[4:-2])
 
-        info(self.name+": join declined: " + message)
+        info(self.id+"join declined: " + message)
 
         return(False)
 
@@ -655,7 +676,7 @@ class EuchrePlayer:
     # This routine parses a CHAT message
     #
     def parseChat(self, bytes):
-        #debug(self.name+": parsing CHAT")
+        #debug(self.id+"parsing CHAT")
         #self.printMessage(bytes)
 
         # the format of a CHAT message is:
@@ -671,11 +692,11 @@ class EuchrePlayer:
 
         # run some sanity checks
         if tail1 != self.messageId['TAIL1'] or tail2 != self.messageId['TAIL2']:
-            error(self.name+": bad tail value in parseChat()")
+            error(self.id+"bad tail value in parseChat()")
             return False
 
         # ok, log the chat
-        #info(self.name+": " + chat)
+        #info(self.id+"" + chat)
 
         return True
 
@@ -685,19 +706,19 @@ class EuchrePlayer:
     # to be passed a bytes array beginning with the string length
     #
     def parseString(self, bytes):
-        #debug(self.name+": parsing string")
+        #debug(self.id+"parsing string")
         #self.printMessage(bytes)
 
         # the format of a string is:
         #   <string> : <textlen> <text>
         (len,) = struct.unpack_from("!i",bytes)
-        #info(self.name+": string len: " + str(len))
+        #info(self.id+"string len: " + str(len))
 
         # now parse out the text of the string
         format = "!"+str(len)+"s"
-        #info(self.name+": format is "+format)
+        #info(self.id+"format is "+format)
         (chat,) = struct.unpack_from(format,bytes[4:])
-        #info(self.name+": chat is: " + chat.decode("utf-8"))
+        #info(self.id+"chat is: " + chat.decode("utf-8"))
 
         return(chat.decode("utf-8"))
 
@@ -707,7 +728,7 @@ class EuchrePlayer:
     # to be passed a bytes array beginning with the string length
     #
     def parseState(self, bytes):
-        #info(self.name+": parsing STATE")
+        #info(self.id+"parsing STATE")
         #self.printMessage(bytes)
         offset = 0
 
@@ -773,7 +794,7 @@ class EuchrePlayer:
         # check that we have a valid tail
         (tail1,tail2) = struct.unpack("!BB",bytes[-2:])
         if tail1 != self.messageId['TAIL1'] or tail2 != self.messageId['TAIL2']:
-            error(self.name+": bad tail value in parseState()")
+            error(self.id+"bad tail value in parseState()")
             return False
 
         return True
@@ -783,7 +804,7 @@ class EuchrePlayer:
     # This routine parses the player data of the <STATE> message
     #
     def parseStatePlayer(self, bytes):
-        #debug(self.name+": parsing player STATE")
+        #debug(self.id+"parsing player STATE")
         offset = 0
 
         #info("")
@@ -802,7 +823,7 @@ class EuchrePlayer:
     # This reads the N'th player state information
     #
     def parseStatePlayerN(self, bytes, n):
-        #debug(self.name+": parsing player STATE for player %d" % (n))
+        #debug(self.id+"parsing player STATE for player %d" % (n))
         offset = 0
 
         # The player data looks like this:
@@ -844,7 +865,7 @@ class EuchrePlayer:
             # get the name
             self.state[ph]['name'] = self.parseString(bytes[offset:])
             offset += 4+len(self.state[ph]['name'])
-            #info(self.name+": player name is " + self.state[ph]['name'])
+            #info(self.id+"player name is " + self.state[ph]['name'])
 
             # get the client name
             self.state[ph]['clientname'] = self.parseString(bytes[offset:])
@@ -966,7 +987,7 @@ class EuchrePlayer:
     # This routine parses the game data of the <STATE> message
     #
     def parseStateGame(self, bytes):
-        #debug(self.name+": parsing game STATE")
+        #debug(self.id+"parsing game STATE")
         #self.printMessage(bytes)
         offset = 0
 
@@ -1015,7 +1036,7 @@ class EuchrePlayer:
 
         # if there is a hole card on offer, read it
         if self.state['holein'] == 1:
-            #info(self.name+": parsing hole card")
+            #info(self.id+"parsing hole card")
             (value,suit) = struct.unpack_from("!ii",bytes[offset:])
             self.state['hole'] = Card(value=value,suit=suit)
             offset += 8
@@ -1029,11 +1050,15 @@ class EuchrePlayer:
             (self.state['trump'],) = struct.unpack_from("!i",bytes[offset:])
             offset += 4
             #info("")
-            #info(self.name+": trump is " + Card.suitName(self.state['trump']))
+            #info(self.id+"trump is " + Card.suitName(self.state['trump']))
 
         # and set the number of tricks for each team
         (tricks0,tricks1) = struct.unpack_from("!ii",bytes[offset:])
         offset += 8
+
+        # store the previous us and them tricks, so we can compute deltas
+        prevus   = self.state['ustricks']
+        prevthem = self.state['themtricks']
 
         # set the tricks as an "ustricks" and "themtricks", to make things
         # easier to parse later
@@ -1043,6 +1068,13 @@ class EuchrePlayer:
         elif self.team == 2:
             self.state['ustricks']   = tricks1
             self.state['themtricks'] = tricks0
+
+        # if the tricks have changed, compute the delta: either ustricks
+        # has changed, or themtricks, but can't (shouldn't) be both
+        if prevus != self.state['ustricks']:
+            self.state['trickdelta'] = self.state['ustricks'] - prevus
+        if prevthem != self.state['themtricks']:
+            self.state['trickdelta'] = -1*(self.state['themtricks'] - prevthem)
 
         # similarly, parse the score values into usscore and themscore
         (score0,score1) = struct.unpack_from("!ii",bytes[offset:])
@@ -1080,7 +1112,7 @@ class EuchrePlayer:
     # This reads the cards information in the state message
     #
     def parseStateCards(self, bytes):
-        #debug(self.name+": parsing cards STATE")
+        #debug(self.id+"parsing cards STATE")
         #self.printMessage(bytes)
         offset = 0
 
@@ -1109,7 +1141,7 @@ class EuchrePlayer:
     #
     def parseDeal(self, bytes):
         debug("")
-        debug(self.name+": parsing DEAL")
+        debug(self.id+"parsing DEAL")
         #self.printMessage(bytes)
 
         # the format of a DEAL message is:
@@ -1120,12 +1152,8 @@ class EuchrePlayer:
         # check we have a valid tail
         (tail1, tail2) = struct.unpack("!BB",bytes[-2:])
         if tail1 != self.messageId['TAIL1'] or tail2 != self.messageId['TAIL2']:
-            error(self.name+": bad tail value in parseDeal()")
+            error(self.id+"bad tail value in parseDeal()")
             return False
-
-        # print out some hand related information
-        if self.playerhandle == 0:
-            info(self.name+": hole card: " + self.state['hole'])
 
         # at this point we've received and parsed the state message with
         # our hand details in it: we will want to know our original hand
@@ -1139,7 +1167,7 @@ class EuchrePlayer:
     # This routine parses a STARTDENY message
     #
     def parseStartDeny(self, bytes):
-        #debug(self.name+": parsing STARTDENY")
+        #debug(self.id+"parsing STARTDENY")
         #self.printMessage(bytes)
 
         # the format of a STARTDENY message is:
@@ -1150,11 +1178,11 @@ class EuchrePlayer:
         # check we have a valid tail
         (tail1, tail2) = struct.unpack("!BB",bytes[-2:])
         if tail1 != self.messageId['TAIL1'] or tail2 != self.messageId['TAIL2']:
-            error(self.name+": bad tail value in parseStartDeny()")
+            error(self.id+"bad tail value in parseStartDeny()")
             return False
 
         info("")
-        info(self.name+": uh-oh, got a STARTDENY message: " + message)
+        info(self.id+"uh-oh, got a STARTDENY message: " + message)
 
         return False
 
@@ -1163,7 +1191,7 @@ class EuchrePlayer:
     # This routine parses an ORDEROFFER message
     #
     def parseOrderOffer(self, bytes):
-        debug(self.name+": parsing ORDEROFFER")
+        debug(self.id+"parsing ORDEROFFER")
         #self.printMessage(bytes)
 
         # the format of an ORDEROFFER message is:
@@ -1174,7 +1202,7 @@ class EuchrePlayer:
         # check we have a valid tail
         (tail1, tail2) = struct.unpack("!BB",bytes[-2:])
         if tail1 != self.messageId['TAIL1'] or tail2 != self.messageId['TAIL2']:
-            error(self.name+": bad tail value in parseOrderOffer()")
+            error(self.id+"bad tail value in parseOrderOffer()")
             return False
 
         # if the person offered the order is us, call sendOrderPass()
@@ -1188,7 +1216,7 @@ class EuchrePlayer:
     # This routine parses a DROPOFFER message
     #
     def parseDropOffer(self, bytes):
-        #debug(self.name+": parsing DROPOFFER")
+        #debug(self.id+"parsing DROPOFFER")
         #self.printMessage(bytes)
 
         # the format of an DROPOFFER message is:
@@ -1199,7 +1227,7 @@ class EuchrePlayer:
         # check we have a valid tail
         (tail1, tail2) = struct.unpack("!BB",bytes[-2:])
         if tail1 != self.messageId['TAIL1'] or tail2 != self.messageId['TAIL2']:
-            error(self.name+": bad tail value in parseDropOffer()")
+            error(self.id+"bad tail value in parseDropOffer()")
             return False
 
         # if the person offered the drop is us, call sendDrop()
@@ -1213,7 +1241,7 @@ class EuchrePlayer:
     # This routine parses a DEFENDOFFER message
     #
     def parseDefendOffer(self, bytes):
-        #debug(self.name+": parsing DEFENDOFFER")
+        #debug(self.id+"parsing DEFENDOFFER")
         #self.printMessage(bytes)
 
         # the format of an DEFENDOFFER message is:
@@ -1224,13 +1252,13 @@ class EuchrePlayer:
         # check we have a valid tail
         (tail1, tail2) = struct.unpack("!BB",bytes[-2:])
         if tail1 != self.messageId['TAIL1'] or tail2 != self.messageId['TAIL2']:
-            error(self.name+": bad tail value in parseDefendOffer()")
+            error(self.id+"bad tail value in parseDefendOffer()")
             return False
 
         # if the person offered the defend is us, call sendDefend()
         if ph == self.playerhandle:
             info("")
-            info(self.name+": declining defend alone")
+            info(self.id+"declining defend alone")
             self.sendDefend()
 
         return True
@@ -1240,7 +1268,7 @@ class EuchrePlayer:
     # This routine parses a DEFENDDENY message
     #
     def parseDefendDeny(self, bytes):
-        #debug(self.name+": parsing DEFENDDENY")
+        #debug(self.id+"parsing DEFENDDENY")
         #self.printMessage(bytes)
 
         # the format of a DEFENDDENY message is:
@@ -1251,11 +1279,11 @@ class EuchrePlayer:
         # check we have a valid tail
         (tail1, tail2) = struct.unpack("!BB",bytes[-2:])
         if tail1 != self.messageId['TAIL1'] or tail2 != self.messageId['TAIL2']:
-            error(self.name+": bad tail value in parseDefendDeny()")
+            error(self.id+"bad tail value in parseDefendDeny()")
             return False
 
         info("")
-        info(self.name+": uh-oh, got a DEFENDDENY message: " + message)
+        info(self.id+"uh-oh, got a DEFENDDENY message: " + message)
 
         return False
 
@@ -1264,7 +1292,7 @@ class EuchrePlayer:
     # This routine parses a PLAYOFFER message
     #
     def parsePlayOffer(self, bytes):
-        #info(self.name+": parsing PLAYOFFER")
+        #info(self.id+"parsing PLAYOFFER")
         #self.printMessage(bytes)
 
         # the format of an PLAYOFFER message is:
@@ -1272,12 +1300,12 @@ class EuchrePlayer:
         # it's really just a notification message, unless we're the <ph>
         (msg, ph) = struct.unpack_from("!ii",bytes)
         info("")
-        info(self.name+": got PLAYOFFER for %s" % (self.state[ph]['name']))
+        #info(self.id+"got PLAYOFFER for %s" % (self.state[ph]['name']))
 
         # check we have a valid tail
         (tail1, tail2) = struct.unpack("!BB",bytes[-2:])
         if tail1 != self.messageId['TAIL1'] or tail2 != self.messageId['TAIL2']:
-            error(self.name+": bad tail value in parseDropOffer()")
+            error(self.id+"bad tail value in parseDropOffer()")
             return False
 
         # if the person offered the play is us, call sendPlay()
@@ -1291,7 +1319,7 @@ class EuchrePlayer:
     # This routine parses a PLAYDENY message
     #
     def parsePlayDeny(self, bytes):
-        #debug(self.name+": parsing PLAYDENY")
+        #debug(self.id+"parsing PLAYDENY")
         #self.printMessage(bytes)
 
         # the format of a PLAYDENY message is:
@@ -1302,11 +1330,11 @@ class EuchrePlayer:
         # check we have a valid tail
         (tail1, tail2) = struct.unpack("!BB",bytes[-2:])
         if tail1 != self.messageId['TAIL1'] or tail2 != self.messageId['TAIL2']:
-            error(self.name+": bad tail value in parsePlayDeny()")
+            error(self.id+"bad tail value in parsePlayDeny()")
             return False
 
         info("")
-        info(self.name+": uh-oh, got a PLAYDENY message: " + message)
+        info(self.id+"uh-oh, got a PLAYDENY message: " + message)
 
         return False
 
@@ -1315,7 +1343,7 @@ class EuchrePlayer:
     # This routine parses a TRICKOVER message
     #
     def parseTrickOver(self, bytes):
-        #debug(self.name+": parsing TRICKOVER")
+        #debug(self.id+"parsing TRICKOVER")
         #self.printMessage(bytes)
 
         # the format of a TRICKOVER message is:
@@ -1325,14 +1353,22 @@ class EuchrePlayer:
         # check we have a valid tail
         (tail1, tail2) = struct.unpack("!BB",bytes[-2:])
         if tail1 != self.messageId['TAIL1'] or tail2 != self.messageId['TAIL2']:
-            error(self.name+": bad tail value in parseTrickOver()")
+            error(self.id+"bad tail value in parseTrickOver()")
             return False
 
         # we don't want to clutter the log by reporting all instances
         # of the trick over message, so we only print it for the maker
         if self.playerhandle == self.state['maker']:
             info("")
-            info(self.name+": trick is over")
+            if self.state['trickdelta'] < 0: wl="lost"
+            elif self.state['trickdelta'] > 0: wl="won"
+            else: wl="bad bad bad"
+            info(self.id+"trick is over, we %s, now %d to %d"
+                % (wl,self.state['ustricks'],self.state['themtricks']))
+
+        # increment the trick counter for the id string
+        self.tcount += 1
+        self.setId()
 
         return True
 
@@ -1342,7 +1378,7 @@ class EuchrePlayer:
     #
     def parseHandOver(self, bytes):
         #info("")
-        #info(self.name+": parsing HANDOVER")
+        #info(self.id+"parsing HANDOVER")
         #self.printMessage(bytes)
 
         # the format of a HANDOVER message is:
@@ -1352,23 +1388,27 @@ class EuchrePlayer:
         # check we have a valid tail
         (tail1, tail2) = struct.unpack("!BB",bytes[-2:])
         if tail1 != self.messageId['TAIL1'] or tail2 != self.messageId['TAIL2']:
-            error(self.name+": bad tail value in parseHandOver()")
+            error(self.id+"bad tail value in parseHandOver()")
             return False
 
         # if we were the maker, print some info and then record the score
         # delta for this hand
         if self.playerhandle == self.state['maker']:
             info("")
-            info(self.name+": hand is over")
+            info(self.id+"hand is over")
             self.printScore()
-            info(self.name+": score delta: %d" % (self.state['scoredelta']))
+            info(self.id+"score delta: %d" % (self.state['scoredelta']))
             remap = self.record.addChand(
                 self.originalHand,self.state['trump'],self.state['scoredelta'])
-            info(self.name+": original hand: %s, trump: %s"
+            info(self.id+"original hand: %s, trump: %s"
                 % (self.printHand(self.originalHand),
                    Card.suitName(self.state['trump'])))
-            info(self.name+": remapped hand: %s" % (remap))
-            sys.exit()
+            info(self.id+"remapped hand: %s" % (remap))
+
+        # increment the hand and trick counters for the id string
+        self.hcount += 1
+        self.tcount  = 0
+        self.setId()
 
         return True
 
@@ -1378,7 +1418,7 @@ class EuchrePlayer:
     #
     def parseGameOver(self, bytes):
         #info("")
-        #info(self.name+": parsing GAMEOVER")
+        #info(self.id+"parsing GAMEOVER")
         #self.printMessage(bytes)
 
         # the format of a GAMEOVER message is:
@@ -1388,17 +1428,26 @@ class EuchrePlayer:
         # check we have a valid tail
         (tail1, tail2) = struct.unpack("!BB",bytes[-2:])
         if tail1 != self.messageId['TAIL1'] or tail2 != self.messageId['TAIL2']:
-            error(self.name+": bad tail value in parseHandOver()")
+            error(self.id+"bad tail value in parseHandOver()")
             return False
 
         # we don't want to clutter the log by reporting all instances
         # of the trick over message, so we only print it for the maker
         if self.playerhandle == self.state['maker']:
             info("")
-            info(self.name+": game is over")
+            info(self.id+"game is over")
             self.printScore()
             info("")
             self.record.addGame()
+
+        # we set the new game, hand, and trick values: this is really
+        # mostly useless, since when the game is over, the player object
+        # is going to deleted, but I think it's useful to do this for
+        # completeness
+        self.gcount += 1
+        self.hcount  = 0
+        self.tcount  = 0
+        self.setId()
 
         # return False to indicate this client is finished
         return False
@@ -1408,7 +1457,7 @@ class EuchrePlayer:
     # This routine parses a random bad message
     #
     def badMessage(self, bytes):
-        debug(self.name+": parsing bad message")
+        debug(self.id+"parsing bad message")
         self.printMessage(bytes)
 
         return False
@@ -1483,14 +1532,14 @@ class EuchrePlayer:
                 playable.append(card)
 
         # if we have no playable cards by suit, then we can play anything
-        #info(self.name+": before playable cards: " + self.printHand(playable))
+        #info(self.id+"before playable cards: " + self.printHand(playable))
         if len(playable) == 0:
             playable = self.hand.copy()
 
         # print the hand
-        info(self.name+": playable cards: " + self.printHand(playable)
-            + ", lead: " + Card.suitName(leadsuit) + ", "
-            + " trump: " + Card.suitName(trumpsuit) )
+        info(self.id+"playable cards: " + self.printHand(playable)
+            + ", lead: " + Card.suitName(leadsuit)
+            + ", trump: " + Card.suitName(trumpsuit) )
 
         # generate some stats for follow requirements
         self.record.addFollow(len(self.hand),len(playable))
