@@ -83,14 +83,15 @@ def playGame(server, port, **kwargs):
 
     # loop across our player sockets checking for input to process
     while players:
-        readable, writable, exceptional = select.select(inputs, [], [], 30)
+        readable, writable, exceptional = \
+            select.select(inputs, [], [], options.timeout)
 
         # if there are no results in inputs, then we hit the timeout, which
         # probably means something went wrong (a client died?) and we should
         # just reset the whole thing
         if len(readable) == 0:
             error("uh-oh, hit timeout, terminating game")
-            sys.exit()
+            return
 
         # loop across each readable socket
         for player in players:
@@ -150,6 +151,16 @@ parser.add_option("--stats",
                   default=False,
                   action="store_true",
                   help="show live stats, implies --quiet")
+
+# add an option to override the timeout logic: by default the server will
+# terminate if there is more than 30s of idle from the server, but this
+# can interfere with manual client play
+parser.add_option("--notimeout",
+                  dest="timeout",
+                  default=30,
+                  const=999999,
+                  action="store_const",
+                  help="disable server timeout, allows for manual clients")
 
 # add an option to set the team 0 class name: if we don't have a class name,
 # we default to the random player
