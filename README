@@ -1,0 +1,130 @@
+Peuchre: Python Client for Euchred
+###########################################################################
+
+Overview
+--------
+This is a python client for the euchred euchre server.  It will create up to 4
+players, connect them to a euchre server, and then run a game with them.  Once
+the game is finished, it will create 4 more players and run another game, and
+continue doing this until the heat death of the universe.  The only extant
+player algorithm plays randomly, and so is very stupid, but the EuchrePlayer
+base class in euchreplayer.py can be extended for users to implement their own
+play logic.
+
+The intention of this package is generate statistical data regarding the the
+game of euchre, devise metrics to measure player logic effectiveness, and use
+those measurements to develop player logic.
+
+This package can also be paired with a manual client, which will allow the
+manual client to be played against the computer.
+
+
+Requirements
+------------
+It's written in basic python, so no fancy package should be needed.
+
+
+Usage
+-----
+Basic usage is: ./peuchre
+
+This will run the client, start 4 players, connect to a server on
+127.0.0.1:1234, and repeatedly play games of euchre, logging data to
+peuchre.log, as well as statistical information to peuchre-chand.csv and
+peuchre-follow.csv.  The client will generate a lot of logging information to
+the screen, showin what operations are being performed.
+
+Live stats: ./peuchre --stats
+
+This will run the client in stats mode: rather than showing log information on
+the screen, a live view of stats will be shown, indicating the number of games
+that have been played, and various other bits of information.  The peuchre.log
+file will contain the logs that would otherwise be printed out, and the
+peuchre-chand.csv and peuchre-follow.csv files will still be created.
+
+Manual Player: ./peuchre --notimeout
+
+This will disable the internal timeout that the peuchre client uses to avoid
+hang ups if players fail to connect: normally, if a player fails to connect to
+the server, it can cause the client to hang, waiting for the (non-existent)
+player to do something.  To prevent this, if the peuchre client sees no
+activity from the server for 30 seconds, it will terminate the game and start
+another.  However, if a manual client is being used in addition to peuchre,
+then the 30s timeout can be hit while waiting for the real person to act.  To
+prevent this happening, the --notimeout option can be used to disable the
+timeout.
+
+
+Player Algorithms
+-----------------
+The peuchre client currently only has one player class, called RandomPlayer.
+This class extends the EuchrePlayer class, which takes care of most of the
+interaction with the euchred server.  It is the responsibility of the
+EuchrePlayer sub-class (such as RandomPlayer, or another user-provided class)
+to implement 5 methods which control decisions made by the player.  A skeleton
+class for the sub-class is:
+
+from logging import warning as warn, log, debug, info, error, critical
+from card import Card
+from euchreplayer import EuchrePlayer
+
+    class Player(EuchrePlayer):
+        # responsible for basic initialization
+        def __init__(self, **kwargs):
+
+        # returns one of ORDER, ORDERALONE, or PASS
+        def decideOrderPass(self):
+
+        # returns a card from self.hand to drop when ordered up
+        def decideDrop(self):
+
+        # returns either DEFEND or DEFENDPASS
+        def decideDefend(self):
+
+        # returns a card from self.hand to lead play
+        def decidePlayLead(self):
+
+        # returns a card from self.hand to follow play
+        def decidePlayFollow(self):
+
+
+The sub-class name must be Player for the class loading code in peuchre to
+detect and load it.  There are various support functions that can be used to
+assist the play logic, some of which can be seen by looking at the RandomPlayer
+object.
+
+Once the player object has been written, it can be used in the peuchre client
+for one or both teams of players like so:
+
+    ./peuchre --team1=<file>
+    ./peuchre --team1=<file> --team2=<file>
+
+Where <file> is the filename containing the client, without the .py extension.
+For example, if the player logic is in file called smartplayer.py, then this
+syntax would run team 1 with randomplayer and team 2 with smartplayer:
+
+    ./peuchre --team2=smartplayer
+
+
+Usage
+-----
+This is a full listing of the help text for the peuchre client:
+
+root@thistle 16> ./peuchre --help
+Usage: peuchre [options]
+
+Options:
+  -h, --help            show this help message and exit
+  -s SERVER, --server=SERVER
+                        name of the euchred server to contact
+  -p PORT,     --port=PORT
+                        port of the euchred server to contact
+  -q,          --quiet  don't print anything to stdout
+  --stats               show live stats, implies --quiet
+  --notimeout           disable server timeout, allows for manual clients
+  -1 TEAM1,    --team1=TEAM1
+                        set the class name for Team 0 players
+  -2 TEAM2,    --team2=TEAM2
+                        set the class name for Team 1 players
+  -n NUMGAMES, --numgames=NUMGAMES
+                        set the number of games to loop for
