@@ -1572,7 +1572,8 @@ class EuchrePlayer:
             self.printScore()
             info(self.id+"score delta: %d" % (self.state['scoredelta']))
             remap = self.record.addChand(
-                self.originalHand,self.state['trump'],self.state['scoredelta'])
+                self.originalHand,self.state['trump'],self.state['scoredelta'],
+                self.team,self.playerhandle)
             info(self.id+"original hand: %s, trump: %s"
                 % (self.printHand(self.originalHand),
                    Card.suitName(self.state['trump'])))
