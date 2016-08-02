@@ -166,14 +166,14 @@ parser.add_option("--notimeout",
 # we default to the random player
 parser.add_option("-1", "--team1",
                   dest="team1",
-                  default='randomplayer',
+                  default='random0',
                   help="set the class name for Team 0 players")
 
 # add an option to set the team 1 class name: if we don't have a class name,
 # we default to the random player
 parser.add_option("-2", "--team2",
                   dest="team2",
-                  default='randomplayer',
+                  default='random0',
                   help="set the class name for Team 1 players")
 
 # add an option to set the number of games to play, default to a large value
@@ -233,6 +233,7 @@ Team2 = __import__(options.team2, globals(), locals(), ['Player'], 0).Player
 # before, since we can handle it more gracefully once
 try:
     callable(Team1.decideOrderPass)
+    callable(Team1.decideCallPass)
     callable(Team1.decideDrop)
     callable(Team1.decideDefend)
     callable(Team1.decidePlayLead)
@@ -242,12 +243,13 @@ except AttributeError:
     error("Hmm, the Team1 class ('%s') isn't providing all"
         % (options.team1))
     error("the necessary methods:")
-    for method in ("decideOrderPass()","decideDrop()","decideDefend()",
-        "decidePlayLead()","decidePlayFollow()"):
+    for method in ("decideOrderPass()","decideCallPass","decideDrop()",
+        "decideDefend()","decidePlayLead()","decidePlayFollow()"):
         info(method)
 
 try:
     callable(Team2.decideOrderPass)
+    callable(Team2.decideCallPass)
     callable(Team2.decideDrop)
     callable(Team2.decideDefend)
     callable(Team2.decidePlayLead)
@@ -257,8 +259,8 @@ except AttributeError:
     error("Hmm, the Team2 class ('%s') isn't providing all"
         % (options.team2))
     error("the necessary methods:")
-    for method in ("decideOrderPass()","decideDrop()","decideDefend()",
-        "decidePlayLead()","decidePlayFollow()"):
+    for method in ("decideOrderPass()","decideCallPass()","decideDrop()",
+        "decideDefend()","decidePlayLead()","decidePlayFollow()"):
         info(method)
 
 # we use this to keep count of the number of games we've done
