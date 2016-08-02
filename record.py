@@ -216,7 +216,7 @@ class Record:
         print("Call Hands:")
         print(" Total:  %6d         Max Reps: %6d" % (self.ccount,self.cmax) )
         print("Unique:  %6d         Avg Reps:    %6.2f" % (numunique,avg) )
-        print("%%cover:     %6.2f" % (100*numunique/22398) )
+        print("%%cover:     %6.2f" % (100*numunique/10422) )
         print("")
         
         # print the follow stats
