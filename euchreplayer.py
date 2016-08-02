@@ -5,6 +5,7 @@
 # EuchrePlayer, and needs to implement the following methods:
 #
 #  - decideOrderPass()
+#  - decideCallPass()
 #  - decideDrop()
 #  - decideDefend()
 #  - decidePlayLead()
@@ -369,12 +370,15 @@ class EuchrePlayer:
 
 
     ###########################################################################
-    # this routine will send an order message: it always orders up, as the
-    # most basic strategy
+    # this routine will send an order, order alone, or order pass message,
+    # based on what the player sub-class implementation of decideOrderPass()
+    # returns
     #
     def sendOrderPass(self):
-        # a start message looks like this:
+        # possible messages look like this:
         #  <msg> : <msglen> <ORDER> <gh> <ph> <tail>
+        #  <msg> : <msglen> <ORDERALONE> <gh> <ph> <tail>
+        #  <msg> : <msglen> <ORDERPASS> <gh> <ph> <tail>
 
         # get the message we should send to the server: this should be one
         # of ORDER, ORDERALONE, or ORDERPASS
@@ -403,6 +407,72 @@ class EuchrePlayer:
 
 
     ###########################################################################
+    # this routine will send a call, call alone, or call pass message,
+    # based on what the player sub-class implementation of decideCallPass()
+    # returns
+    #
+    def sendCallPass(self):
+        # a call looks like this:
+        #  <msg> : <msglen> <CALL> <gh> <ph> <suit> <tail>
+        #  <msg> : <msglen> <CALLALONE> <gh> <ph> <suit> <tail>
+        # a call pass looks like this:
+        #  <msg> : <msglen> <CALLPASS> <gh> <ph> <tail>
+
+        # get the message we should send to the server: this should be one
+        # of CALL, CALLALONE, or CALLPASS, and a suit (which will be
+        # None if the return is a CALLPASS
+        
+        result = self.decideCallPass()
+        op = result['op']
+        suit = result['suit']
+
+        # now generate a packed array of bytes for the message using that
+        # format string, depending on the message we're supposed to return
+        if    op == self.messageId['CALL'] \
+           or op == self.messageId['CALLALONE']:
+            # prep the format string
+            format = "!iiiiiBB"
+            size = struct.calcsize(format)
+            # reduce the size by 4, to leave out the space needed for the
+            # leading size value
+            size = size - 4
+
+            message = struct.pack(format,
+                size,
+                op,
+                self.gamehandle,
+                self.playerhandle,
+                suit,
+                self.messageId['TAIL1'],
+                self.messageId['TAIL2'],
+            )
+
+            #self.printMessage(message)
+            self.s.send(message)
+
+        # now generate a packed array of bytes for the message using that
+        # format string, depending on the message we're supposed to return
+        if op == self.messageId['CALLPASS']:
+            format = "!iiiiBB"
+            size = struct.calcsize(format)
+            # reduce the size by 4, to leave out the space needed for the
+            # leading size value
+            size = size - 4
+
+            message = struct.pack(format,
+                size,
+                op,
+                self.gamehandle,
+                self.playerhandle,
+                self.messageId['TAIL1'],
+                self.messageId['TAIL2'],
+            )
+
+            #self.printMessage(message)
+            self.s.send(message)
+
+
+    ###########################################################################
     # this routine will randomly drop a card, in response to a drop offer
     #
     def sendDrop(self):
@@ -410,7 +480,7 @@ class EuchrePlayer:
         #  <msg> : <msglen> <DROP> <gh> <ph> <card> <tail>
 
         # call decideDrop() which should return a card to drop
-        card = self.decideDrop()
+        card = self.decideDrop(self.state['hole'])
 
         # prep the format string
         format = "!iiiiiiBB"
@@ -592,8 +662,16 @@ class EuchrePlayer:
             return self.parseStartDeny(bytes)
         elif ( id == self.messageId['ORDEROFFER'] ):
             return self.parseOrderOffer(bytes)
+        elif ( id == self.messageId['ORDERDENY'] ):
+            return self.parseOrderDeny(bytes)
+        elif ( id == self.messageId['CALLOFFER'] ):
+            return self.parseCallOffer(bytes)
+        elif ( id == self.messageId['CALLDENY'] ):
+            return self.parseCallDeny(bytes)
         elif ( id == self.messageId['DROPOFFER'] ):
             return self.parseDropOffer(bytes)
+        elif ( id == self.messageId['DROPDENY'] ):
+            return self.parseDropDeny(bytes)
         elif ( id == self.messageId['DEFENDOFFER'] ):
             return self.parseDefendOffer(bytes)
         elif ( id == self.messageId['DEFENDDENY'] ):
@@ -1213,6 +1291,79 @@ class EuchrePlayer:
 
 
     ###########################################################################
+    # This routine parses a ORDERDENY message
+    #
+    def parseOrderDeny(self, bytes):
+        #debug(self.id+"parsing ORDERDENY")
+        #self.printMessage(bytes)
+
+        # the format of a ORDERDENY message is:
+        #   <msg> : <msglen> <ORDERDENY> <string> <tail>
+        # where the string explains why it was denied
+        message = self.parseString(bytes[4:-2])
+
+        # check we have a valid tail
+        (tail1, tail2) = struct.unpack("!BB",bytes[-2:])
+        if tail1 != self.messageId['TAIL1'] or tail2 != self.messageId['TAIL2']:
+            error(self.id+"bad tail value in parseDefendDeny()")
+            return False
+
+        info("")
+        info(self.id+"uh-oh, got a ORDERDENY message: " + message)
+
+        return False
+
+
+    ###########################################################################
+    # This routine parses a CALLOFFER message
+    #
+    def parseCallOffer(self, bytes):
+        debug(self.id+"parsing CALLOFFER")
+        #self.printMessage(bytes)
+
+        # the format of an CALLOFFER message is:
+        #   <msg> : <msglen> <CALLOFFER> <ph> <tail>
+        # it's really just a notification message, unless we're the <ph>
+        (msg, ph) = struct.unpack_from("!ii",bytes)
+
+        # check we have a valid tail
+        (tail1, tail2) = struct.unpack("!BB",bytes[-2:])
+        if tail1 != self.messageId['TAIL1'] or tail2 != self.messageId['TAIL2']:
+            error(self.id+"bad tail value in parseOrderOffer()")
+            return False
+
+        # if the person offered the order is us, call sendOrderPass()
+        if ph == self.playerhandle:
+            self.sendCallPass()
+
+        return True
+
+
+    ###########################################################################
+    # This routine parses a CALLDENY message
+    #
+    def parseCallDeny(self, bytes):
+        #debug(self.id+"parsing CALLDENY")
+        #self.printMessage(bytes)
+
+        # the format of a CALLDENY message is:
+        #   <msg> : <msglen> <CALLDENY> <string> <tail>
+        # where the string explains why it was denied
+        message = self.parseString(bytes[4:-2])
+
+        # check we have a valid tail
+        (tail1, tail2) = struct.unpack("!BB",bytes[-2:])
+        if tail1 != self.messageId['TAIL1'] or tail2 != self.messageId['TAIL2']:
+            error(self.id+"bad tail value in parseDefendDeny()")
+            return False
+
+        info("")
+        info(self.id+"uh-oh, got a CALLDENY message: " + message)
+
+        return False
+
+
+    ###########################################################################
     # This routine parses a DROPOFFER message
     #
     def parseDropOffer(self, bytes):
@@ -1238,6 +1389,30 @@ class EuchrePlayer:
 
 
     ###########################################################################
+    # This routine parses a DROPDENY message
+    #
+    def parseDropDeny(self, bytes):
+        #debug(self.id+"parsing DROPDENY")
+        #self.printMessage(bytes)
+
+        # the format of a DROPDENY message is:
+        #   <msg> : <msglen> <DROPDENY> <string> <tail>
+        # where the string explains why it was denied
+        message = self.parseString(bytes[4:-2])
+
+        # check we have a valid tail
+        (tail1, tail2) = struct.unpack("!BB",bytes[-2:])
+        if tail1 != self.messageId['TAIL1'] or tail2 != self.messageId['TAIL2']:
+            error(self.id+"bad tail value in parseDefendDeny()")
+            return False
+
+        info("")
+        info(self.id+"uh-oh, got a DROPDENY message: " + message)
+
+        return False
+
+
+    ###########################################################################
     # This routine parses a DEFENDOFFER message
     #
     def parseDefendOffer(self, bytes):
@@ -1257,7 +1432,6 @@ class EuchrePlayer:
 
         # if the person offered the defend is us, call sendDefend()
         if ph == self.playerhandle:
-            info("")
             info(self.id+"declining defend alone")
             self.sendDefend()
 
