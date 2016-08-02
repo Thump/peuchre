@@ -66,6 +66,22 @@ class Card:
 
 
     ###########################################################################
+    # This returns a list of all possible suits
+    #
+    @staticmethod
+    def suits():
+        return [0,1,2,3]
+
+
+    ###########################################################################
+    # This returns a list of all possible values
+    #
+    @staticmethod
+    def values():
+        return [9,10,11,12,13,14]
+
+
+    ###########################################################################
     # This takes a suit value and returns the name of the suit
     #
     @staticmethod
