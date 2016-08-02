@@ -150,6 +150,106 @@ def remap(hand, trumpsuit):
     return string
 
 
+###########################################################################
+# This is an alternative routine to remap(): it doesn't distinguish the
+# comp suit, instead just considering all non-trump suits to be one of
+# a, b, or c: this yields better compression of hands, at the cost of
+# being less distinctive in terms of decision making.
+#
+# This routine takes a set of cards and a trump suit, and returns a string
+# with the cards remapped to a suit-independent view of that hand:
+#     input: 'Jd', 'Ks', 'Qc', '9h', 'Jh', d trump
+#    output: RLtKaQb9c
+# which is read as: right and left of trump, K of off-suit a, Q of off-suit
+# b, 9 of off-suit c
+#
+# The intention is that this remapping of suits will be the same for any
+# trump suit, and symmetric for the off-suit cards.
+#
+#  - the J of trump and J of comp are remapped to R and L, both of suit
+#    "t' ("trump")
+#  - all non-trump suits are separated by their suit, ordered, and then
+#    relabeled as suit "a", "b", and "c"
+#
+def remap2(hand, trumpsuit):
+    # set the trump and complementary suit
+    compsuit = Card.suitName(Card.suitComp(trumpsuit))
+    trumpsuit = Card.suitName(trumpsuit)
+
+    # set the asuit and bsuit arbitrarily: we'll be sorting them later
+    if trumpsuit == "c":
+        asuit = "d"
+        bsuit = "h"
+        csuit = "s"
+    if trumpsuit == "d":
+        asuit = "c"
+        bsuit = "h"
+        csuit = "s"
+    if trumpsuit == "h":
+        asuit = "c"
+        bsuit = "d"
+        csuit = "s"
+    if trumpsuit == "s":
+        asuit = "c"
+        bsuit = "d"
+        csuit = "h"
+
+    # set up our cardsets
+    trump = list([])
+    a     = list([])
+    b     = list([])
+    c     = list([])
+
+    # go through each card, add it to the respective sets
+    for card in hand:
+        v = Card.valueName(card.value)
+        s = Card.suitName(card.suit)
+
+        # if it's the trump suit, add it to the trump set
+        if s == trumpsuit:
+            # if it's the J, relabel it as R
+            if v == "J": v = "R"
+            trump.append(v)
+            continue
+
+        # if it's the comp suit and it's the left, add it to the trump set
+        if s == compsuit and v == "J":
+            trump.append("L")
+            continue
+
+        # we've already arbitrarily set the asuit and bsuit values, so
+        # now we add cards to them: we'll make decisions about the final
+        # order in a moment
+        if s == asuit:
+            a.append(v)
+        if s == bsuit:
+            b.append(v)
+        if s == csuit:
+            c.append(v)
+
+    # now we compose the remapped hand string; first add the trump set
+    remap = ""
+    if len(trump) > 0:
+        remap = "".join(sorted(trump))
+        #print("trump: %s  remap: %s" % (trump,remap))
+    remap += "t"
+
+    # we compose sorted strings for the a, b, and c sets, and then sort and
+    # add them to the remap string
+    abc = list([])
+    abc.append("".join(sorted(a)))
+    abc.append("".join(sorted(b)))
+    abc.append("".join(sorted(c)))
+    suitchars = ["a","b","c"]
+    i = 0
+    for s in sorted(abc):
+        remap += s
+        remap += suitchars[i]
+        i += 1
+
+    return remap
+
+
 # open the file with the hands in it
 f = open('hands', 'r')
 
@@ -176,7 +276,7 @@ for line in f:
 # for each hand, remap it for each different possible trump
 for hand in hands:
     for trump in (0,1,2,3):
-        s = remap(hand,trump)    
+        s = remap2(hand,trump)    
         h = ""
         for card in hand:
             h += str(card)
