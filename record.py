@@ -28,17 +28,19 @@ class Record:
         # set up some game tracking stats
         self.gcount = 0
 
-        # set up some hand tracking stats
+        # this tracks total number of hands
         self.hcount = 0
+
+        # this track makes (either orders or calls)
+        self.mteam = [0,0]
+        self.mplayer = [0,0,0,0]
+        self.mpos = [0,0,0,0]
+
+        # this tracks euchres
         self.ecount = 0
-        self.ecountt = {}
-        self.ecountt[1] = 0
-        self.ecountt[2] = 0
-        self.ecountp = {}
-        self.ecountp[0] = 0
-        self.ecountp[1] = 0
-        self.ecountp[2] = 0
-        self.ecountp[3] = 0
+        self.eteam = [0,0]
+        self.eplayer = [0,0,0,0]
+        self.epos = [0,0,0,0]
 
         # set up the call hand stats dict
         self.chand  = {}
@@ -77,25 +79,38 @@ class Record:
 
 
     ########################################################################### 
-    # This takes a list of cards, a trump card, and a score.  It remaps the
-    # hand according to the trump suit, and then stores the hand along with
-    # the relative score (which will be either -4, -2, 1, 2, or 4, depending).
-    # It then stores the result in a list, so we can compute averages,
-    # histograms, sdev, etc.
+    # This takes a list of cards, a trump card, a score, and the calling player
+    # object.  It remaps the hand according to the trump suit, and then stores
+    # the hand along with the relative score (which will be either -4, -2, 1,
+    # 2, or 4, depending).  It then stores the result in a list, so we can
+    # compute averages, histograms, sdev, etc.
     # 
     # We return the remapped string as a convenience: the player will print
     # this in the log, which will allow us to track back the details on a
     # specific result
     #
-    def addChand(self, hand, trump, score, team, player):
+    def addHand(self, hand, trump, score, player):
         # track overall hand information
         self.hcount += 1
+
+        # this computes the position index: 0 is the first person after
+        # the dealer, 1 is the dealer's partner, 2 is the next person,
+        # 3 is the dealer; this allows aggregation of stats based on
+        # position relative to the dealer
+        pos = player.playerhandle - (player.state['dealer'] + 1)
+        if pos < 0: pos += 4
+
+        # track the player, team, and position that makes it
+        self.mteam[player.team - 1] += 1
+        self.mplayer[player.playerhandle] += 1
+        self.mpos[pos] += 1
 
         # if the score is negative, then it was a euchre
         if score < 0:
             self.ecount += 1
-            self.ecountt[team] += 1
-            self.ecountp[player] += 1
+            self.eteam[player.team - 1] += 1
+            self.eplayer[player.playerhandle] += 1
+            self.epos[pos] += 1
 
         # remap the hand by calling remap(hand,trump): this returns a string
         # representation of the hand which is independent of the specific
@@ -209,47 +224,91 @@ class Record:
         if self.gcount > 0:
             hpg = self.hcount / self.gcount
 
-        # compute the % euchres
-        pereuchre = 0
-        if self.hcount > 0:
-            pereuchre = 100*(self.ecount/self.hcount)
-
         # compute the % coverage of remapped hands
         avg = 0
         numunique = len(self.chand)
         if numunique > 0:
             avg = self.ccount / numunique
 
-        # compute euchres by team
-        eteam1 = 0
-        eteam2 = 0
+        # compute make by team
+        mteam0 = 0
+        mteam1 = 0
         if self.hcount > 0:
-            eteam1 = 100*self.ecountt[1] / self.hcount
-            eteam2 = 100*self.ecountt[2] / self.hcount
+            mteam0 = 100*self.mteam[0] / self.hcount
+            mteam1 = 100*self.mteam[1] / self.hcount
+
+        # compute make by player
+        mplayer0 = 0
+        mplayer1 = 0
+        mplayer2 = 0
+        mplayer3 = 0
+        if self.hcount > 0:
+            mplayer0 = 100*self.mplayer[0] / self.hcount
+            mplayer1 = 100*self.mplayer[1] / self.hcount
+            mplayer2 = 100*self.mplayer[2] / self.hcount
+            mplayer3 = 100*self.mplayer[3] / self.hcount
+
+        # compute make by position
+        mpos0 = 0
+        mpos1 = 0
+        mpos2 = 0
+        mpos3 = 0
+        if self.ecount > 0:
+            mpos0 = 100*self.mpos[0] / self.hcount
+            mpos1 = 100*self.mpos[1] / self.hcount
+            mpos2 = 100*self.mpos[2] / self.hcount
+            mpos3 = 100*self.mpos[3] / self.hcount
+
+        # compute % euchres
+        pereuchre = 0
+        if self.hcount > 0:
+            pereuchre = 100*(self.ecount/self.hcount)
+
+        # compute euchres by team
+        eteam0 = 0
+        eteam1 = 0
+        if self.ecount > 0:
+            eteam0 = 100*self.eteam[0] / self.ecount
+            eteam1 = 100*self.eteam[1] / self.ecount
 
         # compute euchres by player
         eplayer0 = 0
         eplayer1 = 0
         eplayer2 = 0
         eplayer3 = 0
-        if self.hcount > 0:
-            eplayer0 = 100*self.ecountp[0] / self.hcount
-            eplayer1 = 100*self.ecountp[1] / self.hcount
-            eplayer2 = 100*self.ecountp[2] / self.hcount
-            eplayer3 = 100*self.ecountp[3] / self.hcount
+        if self.ecount > 0:
+            eplayer0 = 100*self.eplayer[0] / self.ecount
+            eplayer1 = 100*self.eplayer[1] / self.ecount
+            eplayer2 = 100*self.eplayer[2] / self.ecount
+            eplayer3 = 100*self.eplayer[3] / self.ecount
 
-        print("Hands                   Euchres")
-        print("Total:   %6d         %%euchred:  %6.2f"
-            % (self.hcount,pereuchre) )
-        print("Hands/s:    %6.2f      %%by team:  %6.2f / %.2f"
-            % (hps,eteam1,eteam2))
-        print("Hands/g:    %6.2f      %%by player: %5.2f / %.2f / %.2f / %.2f"
-            % (hpg,eplayer0,eplayer1,eplayer2,eplayer3))
-        print("Unique:  %6d" % (numunique) )
-        print("%%cover:     %6.2f" % (100*numunique/10422) )
-        print("Max Reps: %5d" % (self.cmax))
-        print("Avg Reps:   %6.2f" % (avg))
-        #print(" %%cover:     %6.2f" % (100*numunique/10422) )
+        # compute euchres by position
+        epos0 = 0
+        epos1 = 0
+        epos2 = 0
+        epos3 = 0
+        if self.ecount > 0:
+            epos0 = 100*self.epos[0] / self.ecount
+            epos1 = 100*self.epos[1] / self.ecount
+            epos2 = 100*self.epos[2] / self.ecount
+            epos3 = 100*self.epos[3] / self.ecount
+
+        print("Hands                   Makes")
+        print("Total:   %6d         %%by team:  %6.2f / %5.2f"
+            % (self.hcount,mteam0,mteam1) )
+        print("Hands/s:    %6.2f      %%by player:%6.2f /%6.2f /%6.2f /%6.2f"
+            % (hps,mplayer0,mplayer1,mplayer2,mplayer3))
+        print("Hands/g:    %6.2f      %%by pos: %8.2f / %5.2f / %5.2f / %5.2f"
+            % (hpg,mpos0,mpos1,mpos2,mpos3))
+        print("Unique:  %6d" % (numunique,) )
+        print("%%cover:     %6.2f      Euchres" % (100*numunique/10422) )
+        print("Max Reps: %5d         %%euchred:  %6.2f" % (self.cmax,pereuchre))
+        print("Avg Reps:   %6.2f      %%by team:  %6.2f / %5.2f"
+            % (avg,eteam0,eteam1))
+        print("                        %%by player:%6.2f /%6.2f /%6.2f /%6.2f"
+            % (eplayer0,eplayer1,eplayer2,eplayer3))
+        print("                        %%by pos:   %6.2f /%6.2f /%6.2f /%6.2f"
+            % (epos0,epos1,epos2,epos3))
         print("")
         
         # print the follow stats
