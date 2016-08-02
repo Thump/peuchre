@@ -334,42 +334,47 @@ class Record:
     ###########################################################################
     # This routine takes a set of cards and a trump suit, and returns a string
     # with the cards remapped to a suit-independent view of that hand:
-    #     input: 'Jd', 'Ks', 'Qc', 'Qh', 'Jh', d trump
-    #    output: RLtQcKaQb
-    # which is read as: right and left of trump, Q of complimentary, K of
-    # off-suit a, Q of off-suit b
+    #     input: 'Jd', 'Ks', 'Qc', '9h', 'Jh', d trump
+    #    output: RLtKaQb9c
+    # which is read as: right and left of trump, K of off-suit a, Q of off-suit
+    # b, 9 of off-suit c
     #
     # The intention is that this remapping of suits will be the same for any
     # trump suit, and symmetric for the off-suit cards.
     #
     #  - the J of trump and J of comp are remapped to R and L, both of suit
     #    "t' ("trump")
-    #  - any cards of the comp suit ("h" if trump is "d", "c" if trump is "s",
-    #    etc) are mapped to suit "c" (complimentary, unfortunately colliding
-    #    with the "c' of clubs, but we'll have to manage with that)
-    #  - card within their classes are sorted from high to low
-    #  - any off suit cards are merged into a string and ordered alphabetically
-    #    by value of suit and number of cards, and then the suits remapped to
-    #    "a" and "b"
+    #  - all non-trump suits are separated by their suit, ordered, and then
+    #    relabeled as suit "a", "b", and "c"
     #
-    def remap(self, hand, trumpsuit):
-        # set the trump and complimentary suit
+    def remap2(hand, trumpsuit):
+        # set the trump and complementary suit
         compsuit = Card.suitName(Card.suitComp(trumpsuit))
         trumpsuit = Card.suitName(trumpsuit)
-    
+
         # set the asuit and bsuit arbitrarily: we'll be sorting them later
-        if trumpsuit == "c" or trumpsuit == "s":
+        if trumpsuit == "c":
             asuit = "d"
             bsuit = "h"
-        if trumpsuit == "h" or trumpsuit == "d":
+            csuit = "s"
+        if trumpsuit == "d":
             asuit = "c"
-            bsuit = "s"
+            bsuit = "h"
+            csuit = "s"
+        if trumpsuit == "h":
+            asuit = "c"
+            bsuit = "d"
+            csuit = "s"
+        if trumpsuit == "s":
+            asuit = "c"
+            bsuit = "d"
+            csuit = "h"
     
         # set up our cardsets
         trump = list([])
-        comp  = list([])
         a     = list([])
         b     = list([])
+        c     = list([])
     
         # go through each card, add it to the respective sets
         for card in hand:
@@ -379,20 +384,14 @@ class Record:
             # if it's the trump suit, add it to the trump set
             if s == trumpsuit:
                 # if it's the J, relabel it as R
-                if v == "J":
-                    v = "R"
+                if v == "J": v = "R"
                 trump.append(v)
+                continue
     
-            # if it's the comp suit, add it to the comp set, unless it's the
-            # left, in which case rename it to "L" and add it to the trump
-            # set
-            if s == compsuit:
-                # if it's the left, add it to the trump set
-                if v == "J":
-                    v = "L"
-                    trump.append(v)
-                else:
-                    comp.append(v)
+            # if it's the comp suit and it's the left, add it to the trump set
+            if s == compsuit and v == "J":
+                trump.append("L")
+                continue
     
             # we've already arbitrarily set the asuit and bsuit values, so
             # now we add cards to them: we'll make decisions about the final
@@ -401,64 +400,27 @@ class Record:
                 a.append(v)
             if s == bsuit:
                 b.append(v)
+            if s == csuit:
+                c.append(v)
     
-        # now we compose the remapped hand string; first add the trump and
-        # comp set cards
-        string = ""
+        # now we compose the remapped hand string; first add the trump set
+        remap = ""
         if len(trump) > 0:
-            for card in sorted(trump):
-                string += card
-        string += "t"
-        if len(comp) > 0:
-            for card in sorted(comp):
-                string += card
-        string += "c"
+            remap = "".join(sorted(trump))
+            #print("trump: %s  remap: %s" % (trump,remap))
+        remap += "t"
     
-        # we add the a and b sets using the following logic:
-        #  - if one set is longer than the other, add the longer one first
-        #  - if both sets are the same length, and the contents are the same,
-        #    it doesn't matter which we add first, so do a first, then b
-        #  - if both sets are the same length, and the contents are different,
-        #    add the one that sorts first
-        if len(a) == 0 and len(b) == 0:
-            string += "ab"
-        elif len(a) > 0 and len(b) == 0:
-            for card in sorted(a):
-                string += card
-            string += "a"
-            string += "b"
-        elif len(b) > 0 and len(a) == 0:
-            for card in sorted(b):
-                string += card
-            string += "a"
-            string += "b"
-        elif len(a) > len(b):
-            for card in sorted(a):
-                string += card
-            string += "a"
-            for card in sorted(b):
-                string += card
-            string += "b"
-        elif len(b) > len(a):
-            for card in sorted(b):
-                string += card
-            string += "a"
-            for card in sorted(a):
-                string += card
-            string += "b"
-        elif a > b or a == b:
-            for card in sorted(a):
-                string += card
-            string += "a"
-            for card in sorted(b):
-                string += card
-            string += "b"
-        elif a < b:
-            for card in sorted(b):
-                string += card
-            string += "a"
-            for card in sorted(a):
-                string += card
-            string += "b"
+        # we compose sorted strings for the a, b, and c sets, and then sort and
+        # add them to the remap string
+        abc = list([])
+        abc.append("".join(sorted(a)))
+        abc.append("".join(sorted(b)))
+        abc.append("".join(sorted(c)))
+        suitchars = ["a","b","c"]
+        i = 0
+        for s in sorted(abc):
+            remap += s
+            remap += suitchars[i]
+            i += 1
     
-        return string
+        return remap
