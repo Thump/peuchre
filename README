@@ -24,6 +24,15 @@ Requirements
 It's written in basic python, so no fancy package should be needed.
 
 
+Getting It
+----------
+The code can be cloned from GitHub with:
+
+    git clone git@github.com:Thump/peuchre
+
+A peuchre/ directory will be created and the code copied into it.
+
+
 Usage
 -----
 Basic usage is: ./peuchre
@@ -75,6 +84,10 @@ from euchreplayer import EuchrePlayer
         # returns one of ORDER, ORDERALONE, or PASS
         def decideOrderPass(self):
 
+        # returns a dict with op set to one of CALL, CALLALONE, or CALLPASS,
+        # and suit set to the suit that's being called
+        def decideCallPass(self):
+
         # returns a card from self.hand to drop when ordered up
         def decideDrop(self):
 
@@ -104,6 +117,30 @@ For example, if the player logic is in file called smartplayer.py, then this
 syntax would run team 1 with randomplayer and team 2 with smartplayer:
 
     ./peuchre --team2=smartplayer
+
+
+Random Player
+-------------
+There is an already implemented player sub-class in the random0.py file: it
+implements a random player which exhibits these characteristics:
+
+ - each team will order 50% of the time, never alone
+ - for the players on the non-dealing team, this means they will order with
+   25% probability
+ - for the players on the dealing team, this means the non-dealing player
+   will never order (since it would mean that team would go alone), and the
+   dealer will pick up with 50% probability
+ - when the dealer is ordered or picks up, the dealer will always drop the
+   ordered card
+ - if no one orders the hole card, then each player will call a trump suit
+   with 25% probability; if it gets back to the dealer, the dealer will
+   always call a trump
+ - if a player calls trump, it will randomly do so amongst the 3 non-hole
+   card suits
+ - the leading player will lead a random card
+ - the following players will follow a random card
+
+The result of this profile is that the rate of euchres is 50%.
 
 
 Usage
