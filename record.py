@@ -31,6 +31,14 @@ class Record:
         # set up some hand tracking stats
         self.hcount = 0
         self.ecount = 0
+        self.ecountt = {}
+        self.ecountt[1] = 0
+        self.ecountt[2] = 0
+        self.ecountp = {}
+        self.ecountp[0] = 0
+        self.ecountp[1] = 0
+        self.ecountp[2] = 0
+        self.ecountp[3] = 0
 
         # set up the call hand stats dict
         self.chand  = {}
@@ -79,13 +87,15 @@ class Record:
     # this in the log, which will allow us to track back the details on a
     # specific result
     #
-    def addChand(self, hand, trump, score):
+    def addChand(self, hand, trump, score, team, player):
         # track overall hand information
         self.hcount += 1
 
         # if the score is negative, then it was a euchre
         if score < 0:
             self.ecount += 1
+            self.ecountt[team] += 1
+            self.ecountp[player] += 1
 
         # remap the hand by calling remap(hand,trump): this returns a string
         # representation of the hand which is independent of the specific
@@ -184,39 +194,62 @@ class Record:
         gps = 0
         if self.start != time.time():
             gps = self.gcount / (time.time() - self.start)
-        print("Games:")
-        print("  Total: %6d" % (self.gcount))
+        print("Games")
+        print("Total:   %6d" % (self.gcount))
         print("Games/s:    %6.2f" % (gps))
         print("")
 
-        # % euchres
-        pereuchre = 0
-        if self.hcount > 0:
-            pereuchre = 100*(self.ecount/self.hcount)
-
         # print the hand stats
+
+        # compute hands per second and hands per game
         hps = 0
         if self.start != time.time():
             hps = self.hcount / (time.time() - self.start)
         hpg = 0
         if self.gcount > 0:
             hpg = self.hcount / self.gcount
-        print("Hands:")
-        print("  Total: %6d          Euchres: %6d"
-            % (self.hcount,self.ecount) )
-        print("Hands/s:    %6.2f      %%euchres:    %6.2f" % (hps,pereuchre))
-        print("Hands/g:    %6.2f" % (hpg))
-        print("")
-        
-        # print the call hand stats
-        numunique = len(self.chand)
+
+        # compute the % euchres
+        pereuchre = 0
+        if self.hcount > 0:
+            pereuchre = 100*(self.ecount/self.hcount)
+
+        # compute the % coverage of remapped hands
         avg = 0
+        numunique = len(self.chand)
         if numunique > 0:
             avg = self.ccount / numunique
-        print("Call Hands:")
-        print(" Total:  %6d         Max Reps: %6d" % (self.ccount,self.cmax) )
-        print("Unique:  %6d         Avg Reps:    %6.2f" % (numunique,avg) )
+
+        # compute euchres by team
+        eteam1 = 0
+        eteam2 = 0
+        if self.hcount > 0:
+            eteam1 = 100*self.ecountt[1] / self.hcount
+            eteam2 = 100*self.ecountt[2] / self.hcount
+
+        # compute euchres by player
+        eplayer0 = 0
+        eplayer1 = 0
+        eplayer2 = 0
+        eplayer3 = 0
+        if self.hcount > 0:
+            eplayer0 = 100*self.ecountp[0] / self.hcount
+            eplayer1 = 100*self.ecountp[1] / self.hcount
+            eplayer2 = 100*self.ecountp[2] / self.hcount
+            eplayer3 = 100*self.ecountp[3] / self.hcount
+
+        print("Hands                   Euchres")
+        print("Total:   %6d         %%euchred:  %6.2f"
+            % (self.hcount,pereuchre) )
+        print("Hands/s:    %6.2f      %%by team:  %6.2f / %.2f"
+            % (hps,eteam1,eteam2))
+        print("Hands/g:    %6.2f      %%by player: %5.2f / %.2f / %.2f / %.2f"
+            % (hpg,eplayer0,eplayer1,eplayer2,eplayer3))
+        print("Unique:  %6d" % (numunique) )
         print("%%cover:     %6.2f" % (100*numunique/10422) )
+        print("Max Reps: %5d" % (self.cmax))
+        print("Avg Reps:   %6.2f" % (avg))
+        #print(" %%cover:     %6.2f" % (100*numunique/10422) )
         print("")
         
         # print the follow stats
@@ -225,9 +258,9 @@ class Record:
             avg[i] = 0
             if 'count' in self.follow[i] and self.follow[i]['count'] > 0:
                 avg[i] = self.follow[i]['sum'] / self.follow[i]['count']
-        print("Follow Ratio:")
-        for i in (1,2,3,4,5):
-            print("Trick%d:     %6.2f" % (i,avg[i]))
+        print("Follow Ratio (by trick)")
+        print("%4.2f / %4.2f / %4.2f / %4.2f / %4.2f"
+            % (avg[1],avg[2],avg[3],avg[4],avg[5]) )
 
         # write if it's time to
         self.write()
@@ -347,7 +380,7 @@ class Record:
     #  - all non-trump suits are separated by their suit, ordered, and then
     #    relabeled as suit "a", "b", and "c"
     #
-    def remap2(hand, trumpsuit):
+    def remap(self, hand, trumpsuit):
         # set the trump and complementary suit
         compsuit = Card.suitName(Card.suitComp(trumpsuit))
         trumpsuit = Card.suitName(trumpsuit)
