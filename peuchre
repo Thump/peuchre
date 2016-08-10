@@ -5,115 +5,14 @@ import logging
 import sys
 import select
 
+import threading
+from game import Game
+from threading import Lock
+
 from optparse import OptionParser
 from logging import warning as warn, log, debug, info, error, critical
 
 from record import Record
-
-
-###########################################################################
-# This returns true if all 4 players are in joined state, false otherwise
-#
-def allJoined(players):
-    # default to true
-    state = True
-
-    # if any player has not joined, set to false
-    for player in players:
-        if 'state' not in player.state or player.state['state'] != 2:
-            state = False
-
-    return state
-
-
-###########################################################################
-# This sends a start message to begin the game: it figures out who the
-# creator is and sends a message as that person
-#
-def sendStart(players):
-    # figure out the creator
-    for player in players:
-        if player.state['creator'] == 1:
-            player.sendStart()
-            return
-
-
-###########################################################################
-# This routine plays a game:
-#  - it instantiates 4 players and connects them to the server
-#  - it serves messages from the server to the players until a
-#    parseMessage() call returns false
-#  - then it exits
-#
-def playGame(server, port, **kwargs):
-    # print our current stats
-    if options.stats: r.print()
-
-    # if we were passed a game count, set it
-    if 'gcount' in kwargs: gcount = kwargs['gcount']
-
-    # we use this to track active sockets and players
-    inputs = []
-    players = []
-
-    # we track whether we've sent a start message or not
-    started = 0
-
-    # first we create up to 4 players and join them to the server: we
-    # stagger the player joins by team, since the server will assign the
-    # added players to team 0, then team 1, then team 0 again, then team
-    # 1 again; after each join, we check if the join succeeded, and if so,
-    # we add the player to the list of players and sockets
-    player = Team1(server=server,port=port,name="p0t1",record=r,gcount=gcount)
-    if player.sendJoin():
-        players.append(player)
-        inputs.append(player.s)
-    player = Team2(server=server,port=port,name="p1t2",record=r,gcount=gcount)
-    if player.sendJoin():
-        players.append(player)
-        inputs.append(player.s)
-    player = Team1(server=server,port=port,name="p2t1",record=r,gcount=gcount)
-    if player.sendJoin():
-        players.append(player)
-        inputs.append(player.s)
-    player = Team2(server=server,port=port,name="p3t2",record=r,gcount=gcount)
-    if player.sendJoin():
-        players.append(player)
-        inputs.append(player.s)
-
-    # loop across our player sockets checking for input to process
-    while players:
-        readable, writable, exceptional = \
-            select.select(inputs, [], [], options.timeout)
-
-        # if there are no results in inputs, then we hit the timeout, which
-        # probably means something went wrong (a client died?) and we should
-        # just reset the whole thing
-        if len(readable) == 0:
-            error("uh-oh, hit timeout, terminating game")
-            return
-
-        # loop across each readable socket
-        for player in players:
-            if player.s in readable:
-                if not player.parseMessage():
-                    players.remove(player)
-                    inputs.remove(player.s)
-
-        # Ugh, the server doesn't support a STARTOFFER message (yet), so
-        # we need to detect when we have 4 connected players to know when
-        # to start
-        if players and allJoined(players):
-            # this sends the start message: let the games begin!
-            if players[0].state['hstate'] == 0 and started != 1:
-                info("")
-                info("game: everyone is joined, sending start %d" % (started))
-                sendStart(players)
-                started = 1
-
-    # if we get here, all the clients have left, so we just return and a
-    # new game will be triggered
-    return
 
 
 ###########################################################################
@@ -183,6 +82,13 @@ parser.add_option("-n", "--numgames",
                   default=999999999,
                   help="set the number of games to loop for")
 
+# add an option to set the number of threads to run in parallel
+parser.add_option("-t", "--numthreads",
+                  type="int",
+                  dest="numthreads",
+                  default=25,
+                  help="set the number of threads to run in parallel")
+
 (options, args) = parser.parse_args()
 
 
@@ -219,12 +125,19 @@ logger.addHandler(fh)
 
 info("This is peuchre")
 
-# create a Record object: we'll pass this to the clients, and they'll use
-# it to record data about their hands: we provide the name of the team
+# create a Record object: we'll pass this to the clients and they'll use
+# it to record data about their hands; we provide the name of the team
 # algorithms so Record can include it in the status output
-r = Record(team1=options.team1,team2=options.team2)
+record = Record(team1=options.team1,team2=options.team2)
 
-# take
+# create a lock structure: we'll use this to control access to the record
+# object by the multiple game threads
+lock = threading.Lock()
+
+# use the options.team[12] strings to create our team classes: it does this
+# by directly calling __import__, using the options.team[12] strings to
+# specify the file name, and expecting to see a class name of Player inside
+# each file
 Team1 = __import__(options.team1, globals(), locals(), ['Player'], 0).Player
 Team2 = __import__(options.team2, globals(), locals(), ['Player'], 0).Player
 
@@ -263,17 +176,57 @@ except AttributeError:
         "decideDefend()","decidePlayLead()","decidePlayFollow()"):
         info(method)
 
-# we use this to keep count of the number of games we've done
-count = 0
+# gcount counts the number of games underway: once this reaches
+# options.numgames, we don't start any more games
+gcount = 0
+
+# determine the number of threads: it's the min of the number of games or
+# the number of threads; then initialize the threads array for later use
+numthreads = min(options.numgames,options.numthreads)
+threads = [None]*numthreads
+
+# this tracks the last time we printed our stats
+lastprint = 0
+
 try:
-    while count < options.numgames:
-        playGame(options.server,options.port,gcount=count)
-        count += 1
+    # loop forever until we've started all expected games
+    while gcount < options.numgames:
+        # loop across all possible thread slots
+        for i in range(0,numthreads):
+            # if we still need to run more games
+            if gcount < options.numgames:
+                # if this slot doesn't have a thread, or has a completed
+                # thread, start a new game in it
+                if (type(threads[i]) is not Game) or \
+                   (not threads[i].is_alive()):
+                    info("server: starting thread[%d]" % (i))
+                    threads[i] = Game(
+                        id=i, gcount=gcount, lock=lock,
+                        stats=options.stats, record=record,
+                        team1=Team1, team2=Team2,
+                        timeout=options.timeout )
+                    threads[i].start()
+                    gcount += 1
+
+        # if we're printing stats, and we're 10s past the last time, print
+        if options.stats and time.time() > lastprint+10:
+            record.print()
+            lastprint = time.time()
+
+        # we don't want to tight loop, so sleep for a bit
+        time.sleep(1)
+
+    # if we get here, we've started all the games, so wait for them to finish
+    for thread in threads:
+        thread.join()
+
+# means we've been interrupted with ^C: handle it and fall through
+# to the final write methods
 except KeyboardInterrupt:
-    # means we've been interrupted with ^C: handle it and fall through
-    # to the final write methods
     print("interrupted")
 
 # do a final print() (just for pretty-ness) and a final forced write
-r.print(clear=False)
-r.writeForce()
+if options.quiet:
+    print("")
+    record.print(clear=False)
+record.writeForce()
