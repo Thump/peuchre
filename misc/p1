@@ -1,0 +1,51 @@
+#!/usr/bin/python3
+
+# A short utility script, intended to replicate the probability used in
+# the ordering/calling behaviour of the random player, to confirm that the
+# probability of the different players making it shown in the game is correct.
+# Basically, the % probability of this line in the stats output:
+#
+#    %by pos:    32.05 /  5.27 / 22.73 / 39.95
+#
+# Should be the same as the % probability shown as output of this script. 
+
+import random
+
+make = [0,0,0,0]
+
+count = 0
+p = -1
+while count < 1000000:
+    # increment our loop counter
+    count += 1
+
+    # if someone made it, take account
+    if p > -1: make[p] += 1
+    p = -1
+
+    # order
+    # 1 in 4 chance to be first player
+    p = random.choice([0,-1,-1,-1])
+    if p > -1: continue
+    # 1 in 4 chance to be third player
+    p = random.choice([2,-1,-1,-1])
+    if p > -1: continue
+    # 1 in 4 chance to be fourth player
+    p = random.choice([3,3,-1,-1])
+    if p > -1: continue
+
+    # call
+    # 1 in 4 chance to be first player
+    p = random.choice([0,-1,-1,-1])
+    if p > -1: continue
+    # 1 in 4 chance to be second player
+    p = random.choice([1,-1,-1,-1])
+    if p > -1: continue
+    # 1 in 4 chance to be third player
+    p = random.choice([2,-1,-1,-1])
+    if p > -1: continue
+    # always fourth player
+    p = 3
+
+for i in 0,1,2,3:
+    print("%d: %5.2f" % (i,100*make[i]/count))
