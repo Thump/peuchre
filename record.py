@@ -41,6 +41,8 @@ class Record:
         self.eteam = [0,0]
         self.eplayer = [0,0,0,0]
         self.epos = [0,0,0,0]
+        self.ehole = [0,0,0,0,0,0]
+        self.eordered = 0
 
         # set up the call hand stats dict
         self.chand  = {}
@@ -112,12 +114,24 @@ class Record:
             self.eplayer[player.playerhandle] += 1
             self.epos[pos] += 1
 
+            # if this was a euchre on an order, we track the %euchre by
+            # hole card: map the hole card to an index and store the count
+            if player.state['orderer'] == player.playerhandle:
+                self.eordered += 1
+                v = player.state['hole'].value
+                if v ==  9: self.ehole[0] += 1  # 9
+                if v == 10: self.ehole[1] += 1  # T
+                if v == 12: self.ehole[2] += 1  # Q
+                if v == 13: self.ehole[3] += 1  # K
+                if v == 14: self.ehole[4] += 1  # A
+                if v == 11: self.ehole[5] += 1  # J
+
         # remap the hand by calling remap(hand,trump): this returns a string
         # representation of the hand which is independent of the specific
         # trump suit
         remap = self.remap(hand,trump)
 
-        # now use the remap string to index into the chand dict, and store
+        # now use the remap string to index into the hand dict, and store
         # the score result; if the index for this remap doesn't exist,
         # make
         if remap not in self.chand:
@@ -293,22 +307,39 @@ class Record:
             epos2 = 100*self.epos[2] / self.ecount
             epos3 = 100*self.epos[3] / self.ecount
 
-        print("Hands                   Makes")
-        print("Total:   %6d         %%by team:  %6.2f / %5.2f"
+        # compute euchres by hole card
+        ehole0 = 0
+        ehole1 = 0
+        ehole2 = 0
+        ehole3 = 0
+        ehole4 = 0
+        ehole5 = 0
+        if self.eordered > 0:
+            ehole0 = 100*self.ehole[0] / self.eordered
+            ehole1 = 100*self.ehole[1] / self.eordered
+            ehole2 = 100*self.ehole[2] / self.eordered
+            ehole3 = 100*self.ehole[3] / self.eordered
+            ehole4 = 100*self.ehole[4] / self.eordered
+            ehole5 = 100*self.ehole[5] / self.eordered
+
+        print("Hands                  Makes")
+        print("Total:   %6d        %%by team:  %6.2f / %5.2f"
             % (self.hcount,mteam0,mteam1) )
-        print("Hands/s:    %6.2f      %%by player:%6.2f /%6.2f /%6.2f /%6.2f"
+        print("Hands/s:    %6.2f     %%by player:%6.2f /%6.2f /%6.2f /%6.2f"
             % (hps,mplayer0,mplayer1,mplayer2,mplayer3))
-        print("Hands/g:    %6.2f      %%by pos: %8.2f / %5.2f / %5.2f / %5.2f"
+        print("Hands/g:    %6.2f     %%by pos: %8.2f / %5.2f / %5.2f / %5.2f"
             % (hpg,mpos0,mpos1,mpos2,mpos3))
         print("Unique:  %6d" % (numunique,) )
-        print("%%cover:     %6.2f      Euchres" % (100*numunique/10422) )
-        print("Max Reps: %5d         %%euchred:  %6.2f" % (self.cmax,pereuchre))
-        print("Avg Reps:   %6.2f      %%by team:  %6.2f / %5.2f"
+        print("%%cover:     %6.2f     Euchres" % (100*numunique/10422) )
+        print("Max Reps: %5d        %%euchred:  %6.2f" % (self.cmax,pereuchre))
+        print("Avg Reps:   %6.2f     %%by team:  %6.2f / %5.2f"
             % (avg,eteam0,eteam1))
-        print("                        %%by player:%6.2f /%6.2f /%6.2f /%6.2f"
+        print("                       %%by player:%6.2f /%6.2f /%6.2f /%6.2f"
             % (eplayer0,eplayer1,eplayer2,eplayer3))
-        print("                        %%by pos:   %6.2f /%6.2f /%6.2f /%6.2f"
+        print("                       %%by pos:   %6.2f /%6.2f /%6.2f /%6.2f"
             % (epos0,epos1,epos2,epos3))
+        print("                       %%by hole:  %6.2f /%6.2f /%6.2f /%6.2f /%6.2f /%6.2f"
+            % (ehole0,ehole1,ehole2,ehole3,ehole4,ehole5))
         print("")
         
         # print the follow stats
