@@ -145,6 +145,9 @@ class EuchrePlayer:
         self.state['ustricks']   = 0
         self.state['themtricks'] = 0
 
+        # init orderer to -1
+        self.state['orderer'] = -1
+
         # randomize that name!
         self.name = ''.join(random.SystemRandom().choice(string.ascii_uppercase + string.digits) for _ in range(10))
 
@@ -167,6 +170,9 @@ class EuchrePlayer:
         self.hcount = 0
         self.tcount = 0
         self.setId()
+
+        if 'lock' in kwargs:
+            self.lock = kwargs['lock']
 
 
     ###########################################################################
@@ -1571,13 +1577,26 @@ class EuchrePlayer:
             info(self.id+"hand is over")
             self.printScore()
             info(self.id+"score delta: %d" % (self.state['scoredelta']))
-            remap = self.record.addHand(
-                self.originalHand, self.state['trump'],
-                self.state['scoredelta'], self)
             info(self.id+"original hand: %s, trump: %s"
                 % (self.printHand(self.originalHand),
                    Card.suitName(self.state['trump'])))
+
+            # log our data in a thread-safe fashion
+            self.lock.acquire()
+            remap = ""
+            try:
+                remap = self.record.addHand(
+                    self.originalHand, self.state['trump'],
+                    self.state['scoredelta'], self)
+            finally:
+                self.lock.release()
+
+            # log the remapped hand: makes it easier to debug things later
             info(self.id+"remapped hand: %s" % (remap))
+
+        # clear the orderer info
+        self.state['orderer'] = -1
+
 
         # increment the hand and trick counters for the id string
         self.hcount += 1
@@ -1612,7 +1631,14 @@ class EuchrePlayer:
             info(self.id+"game is over")
             self.printScore()
             info("")
-            self.record.addGame()
+
+            # log our data in a thread-safe fashion
+            self.lock.acquire()
+            try:
+                self.record.addGame()
+            finally:
+                self.lock.release()
+
 
         # we set the new game, hand, and trick values: this is really
         # mostly useless, since when the game is over, the player object
@@ -1711,12 +1737,16 @@ class EuchrePlayer:
             playable = self.hand.copy()
 
         # print the hand
-        info(self.id+"playable cards: " + self.printHand(playable)
+        info(self.id+"playable: " + self.printHand(playable)
             + ", lead: " + Card.suitName(leadsuit)
             + ", trump: " + Card.suitName(trumpsuit) )
 
-        # generate some stats for follow requirements
-        self.record.addFollow(len(self.hand),len(playable))
+        # generate some stats for follow requirements in a thread-safe way
+        self.lock.acquire()
+        try:
+            self.record.addFollow(len(self.hand),len(playable))
+        finally:
+            self.lock.release()
 
         return playable
 
