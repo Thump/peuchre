@@ -34,14 +34,17 @@ class Record:
         # this track makes (either orders or calls)
         self.mteam = [0,0]
         self.mplayer = [0,0,0,0]
-        self.mpos = [0,0,0,0]
+        self.mpos1 = [0,0,0,0]
+        self.mpos2 = [0,0,0,0]
 
         # this tracks euchres
         self.ecount = 0
         self.eteam = [0,0]
         self.eplayer = [0,0,0,0]
-        self.epos = [0,0,0,0]
-        self.ehole = [0,0,0,0,0,0]
+        self.epos1 = [0,0,0,0]
+        self.epos2 = [0,0,0,0]
+        self.ehole1 = [0,0,0,0,0,0]
+        self.ehole2 = [0,0,0,0,0,0]
         self.eordered = 0
 
         # set up the call hand stats dict
@@ -105,26 +108,40 @@ class Record:
         # track the player, team, and position that makes it
         self.mteam[player.team - 1] += 1
         self.mplayer[player.playerhandle] += 1
-        self.mpos[pos] += 1
+        if player.team == 1:
+            self.mpos1[pos] += 1
+        else:
+            self.mpos2[pos] += 1
 
         # if the score is negative, then it was a euchre
         if score < 0:
             self.ecount += 1
             self.eteam[player.team - 1] += 1
             self.eplayer[player.playerhandle] += 1
-            self.epos[pos] += 1
+            if player.team == 1:
+                self.epos1[pos] += 1
+            else:
+                self.epos2[pos] += 1
 
             # if this was a euchre on an order, we track the %euchre by
             # hole card: map the hole card to an index and store the count
             if player.state['orderer'] == player.playerhandle:
                 self.eordered += 1
                 v = player.state['hole'].value
-                if v ==  9: self.ehole[0] += 1  # 9
-                if v == 10: self.ehole[1] += 1  # T
-                if v == 12: self.ehole[2] += 1  # Q
-                if v == 13: self.ehole[3] += 1  # K
-                if v == 14: self.ehole[4] += 1  # A
-                if v == 11: self.ehole[5] += 1  # J
+                if player.team == 1:
+                    if v ==  9: self.ehole1[0] += 1  # 9
+                    if v == 10: self.ehole1[1] += 1  # T
+                    if v == 12: self.ehole1[2] += 1  # Q
+                    if v == 13: self.ehole1[3] += 1  # K
+                    if v == 14: self.ehole1[4] += 1  # A
+                    if v == 11: self.ehole1[5] += 1  # J
+                else:
+                    if v ==  9: self.ehole2[0] += 1  # 9
+                    if v == 10: self.ehole2[1] += 1  # T
+                    if v == 12: self.ehole2[2] += 1  # Q
+                    if v == 13: self.ehole2[3] += 1  # K
+                    if v == 14: self.ehole2[4] += 1  # A
+                    if v == 11: self.ehole2[5] += 1  # J
 
         # remap the hand by calling remap(hand,trump): this returns a string
         # representation of the hand which is independent of the specific
@@ -207,7 +224,8 @@ class Record:
         # clear the screen to start
         if 'clear' not in kwargs \
            or ('clear' in kwargs and kwargs['clear'] != False ):
-            os.system('clear')
+            #os.system('clear')
+            print("[H[2J")
 
         # compute the run time
         t = time.gmtime(time.time() - self.start)
@@ -263,15 +281,17 @@ class Record:
             mplayer3 = 100*self.mplayer[3] / self.hcount
 
         # compute make by position
-        mpos0 = 0
-        mpos1 = 0
-        mpos2 = 0
-        mpos3 = 0
-        if self.ecount > 0:
-            mpos0 = 100*self.mpos[0] / self.hcount
-            mpos1 = 100*self.mpos[1] / self.hcount
-            mpos2 = 100*self.mpos[2] / self.hcount
-            mpos3 = 100*self.mpos[3] / self.hcount
+        mpos1 = [0,0,0,0]
+        mpos2 = [0,0,0,0]
+        if self.hcount > 0:
+            mpos1[0] = 100*self.mpos1[0] / self.hcount
+            mpos1[1] = 100*self.mpos1[1] / self.hcount
+            mpos1[2] = 100*self.mpos1[2] / self.hcount
+            mpos1[3] = 100*self.mpos1[3] / self.hcount
+            mpos2[0] = 100*self.mpos2[0] / self.hcount
+            mpos2[1] = 100*self.mpos2[1] / self.hcount
+            mpos2[2] = 100*self.mpos2[2] / self.hcount
+            mpos2[3] = 100*self.mpos2[3] / self.hcount
 
         # compute % euchres
         pereuchre = 0
@@ -297,49 +317,58 @@ class Record:
             eplayer3 = 100*self.eplayer[3] / self.ecount
 
         # compute euchres by position
-        epos0 = 0
-        epos1 = 0
-        epos2 = 0
-        epos3 = 0
+        epos1 = [0,0,0,0]
+        epos2 = [0,0,0,0]
         if self.ecount > 0:
-            epos0 = 100*self.epos[0] / self.ecount
-            epos1 = 100*self.epos[1] / self.ecount
-            epos2 = 100*self.epos[2] / self.ecount
-            epos3 = 100*self.epos[3] / self.ecount
+            epos1[0] = 100*self.epos1[0] / self.ecount
+            epos1[1] = 100*self.epos1[1] / self.ecount
+            epos1[2] = 100*self.epos1[2] / self.ecount
+            epos1[3] = 100*self.epos1[3] / self.ecount
+            epos2[0] = 100*self.epos2[0] / self.ecount
+            epos2[1] = 100*self.epos2[1] / self.ecount
+            epos2[2] = 100*self.epos2[2] / self.ecount
+            epos2[3] = 100*self.epos2[3] / self.ecount
 
         # compute euchres by hole card
-        ehole0 = 0
-        ehole1 = 0
-        ehole2 = 0
-        ehole3 = 0
-        ehole4 = 0
-        ehole5 = 0
+        ehole1 = [0,0,0,0,0,0]
+        ehole2 = [0,0,0,0,0,0]
         if self.eordered > 0:
-            ehole0 = 100*self.ehole[0] / self.eordered
-            ehole1 = 100*self.ehole[1] / self.eordered
-            ehole2 = 100*self.ehole[2] / self.eordered
-            ehole3 = 100*self.ehole[3] / self.eordered
-            ehole4 = 100*self.ehole[4] / self.eordered
-            ehole5 = 100*self.ehole[5] / self.eordered
+            ehole1[0] = 100*self.ehole1[0] / self.eordered
+            ehole1[1] = 100*self.ehole1[1] / self.eordered
+            ehole1[2] = 100*self.ehole1[2] / self.eordered
+            ehole1[3] = 100*self.ehole1[3] / self.eordered
+            ehole1[4] = 100*self.ehole1[4] / self.eordered
+            ehole1[5] = 100*self.ehole1[5] / self.eordered
+            ehole2[0] = 100*self.ehole2[0] / self.eordered
+            ehole2[1] = 100*self.ehole2[1] / self.eordered
+            ehole2[2] = 100*self.ehole2[2] / self.eordered
+            ehole2[3] = 100*self.ehole2[3] / self.eordered
+            ehole2[4] = 100*self.ehole2[4] / self.eordered
+            ehole2[5] = 100*self.ehole2[5] / self.eordered
 
         print("Hands                  Makes")
-        print("Total:   %6d        %%by team:  %6.2f / %5.2f"
+        print("Total:   %6d        %%by team:   %6.2f / %5.2f"
             % (self.hcount,mteam0,mteam1) )
-        print("Hands/s:    %6.2f     %%by player:%6.2f /%6.2f /%6.2f /%6.2f"
-            % (hps,mplayer0,mplayer1,mplayer2,mplayer3))
-        print("Hands/g:    %6.2f     %%by pos: %8.2f / %5.2f / %5.2f / %5.2f"
-            % (hpg,mpos0,mpos1,mpos2,mpos3))
-        print("Unique:  %6d" % (numunique,) )
+        print("Hands/s:    %6.2f     %%by player: %6.2f /%6.2f /%6.2f /%6.2f"
+            % (hps,mplayer0,mplayer1,mplayer2,mplayer3) )
+        print("Hands/g:    %6.2f     %%by pos t1: %6.2f / %5.2f / %5.2f / %5.2f"
+            % (hpg,mpos1[0],mpos1[1],mpos1[2],mpos1[3]) )
+        print("Unique:  %6d                t2: %6.2f / %5.2f / %5.2f / %5.2f"
+            % (numunique,mpos2[0],mpos2[1],mpos2[2],mpos2[3]) )
         print("%%cover:     %6.2f     Euchres" % (100*numunique/10422) )
-        print("Max Reps: %5d        %%euchred:  %6.2f" % (self.cmax,pereuchre))
-        print("Avg Reps:   %6.2f     %%by team:  %6.2f / %5.2f"
+        print("Max Reps: %5d        %%euchred:  %7.2f" % (self.cmax,pereuchre) )
+        print("Avg Reps:   %6.2f     %%by team:  %7.2f / %5.2f"
             % (avg,eteam0,eteam1))
-        print("                       %%by player:%6.2f /%6.2f /%6.2f /%6.2f"
+        print("                       %%by player: %6.2f /%6.2f /%6.2f /%6.2f"
             % (eplayer0,eplayer1,eplayer2,eplayer3))
-        print("                       %%by pos:   %6.2f /%6.2f /%6.2f /%6.2f"
-            % (epos0,epos1,epos2,epos3))
-        print("                       %%by hole:  %6.2f /%6.2f /%6.2f /%6.2f /%6.2f /%6.2f"
-            % (ehole0,ehole1,ehole2,ehole3,ehole4,ehole5))
+        print("                       %%by pos t1: %6.2f /%6.2f /%6.2f /%6.2f"
+            % (epos1[0],epos1[1],epos1[2],epos1[3]))
+        print("                               t2: %6.2f /%6.2f /%6.2f /%6.2f"
+            % (epos2[0],epos2[1],epos2[2],epos2[3]))
+        print("                       %%by hole t1: %5.2f /%6.2f /%6.2f /%6.2f /%6.2f /%6.2f"
+            % (ehole1[0],ehole1[1],ehole1[2],ehole1[3],ehole1[4],ehole1[5]))
+        print("                                t2: %5.2f /%6.2f /%6.2f /%6.2f /%6.2f /%6.2f"
+            % (ehole2[0],ehole2[1],ehole2[2],ehole2[3],ehole2[4],ehole2[5]))
         print("")
         
         # print the follow stats
