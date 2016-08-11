@@ -1657,8 +1657,8 @@ class EuchrePlayer:
     # This routine parses a random bad message
     #
     def badMessage(self, bytes):
-        debug(self.id+"parsing bad message")
-        self.printMessage(bytes)
+        #debug(self.id+"parsing bad message")
+        #self.printMessage(bytes)
 
         return False
 
