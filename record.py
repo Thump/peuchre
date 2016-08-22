@@ -14,7 +14,9 @@
 import os
 import time
 import sys
+
 from card import Card
+from collections import namedtuple
 
 class Record: 
 
@@ -25,27 +27,44 @@ class Record:
         # records the time of the first submitted hand, in seconds
         self.start = time.time()
 
-        # set up some game tracking stats
+        # track total number of games, hands, and euchres
         self.gcount = 0
-
-        # this tracks total number of hands
         self.hcount = 0
-
-        # this track makes (either orders or calls)
-        self.mteam = [0,0]
-        self.mplayer = [0,0,0,0]
-        self.mpos1 = [0,0,0,0]
-        self.mpos2 = [0,0,0,0]
-
-        # this tracks euchres
         self.ecount = 0
-        self.eteam = [0,0]
-        self.eplayer = [0,0,0,0]
-        self.epos1 = [0,0,0,0]
-        self.epos2 = [0,0,0,0]
-        self.ehole1 = [0,0,0,0,0,0]
-        self.ehole2 = [0,0,0,0,0,0]
-        self.eordered = 0
+
+        # a dict to track makers
+        self.makers = namedtuple(
+            'Makers',['team','player','team1pos','team2pos'])
+        self.makers.team = [0,0]
+        self.makers.player = [0,0,0,0]
+        self.makers.team1pos = [0,0,0,0]
+        self.makers.team2pos = [0,0,0,0]
+
+        # a dict to track orderers
+        self.orderers = namedtuple(
+            'Orderers',['team','player','team1pos','team2pos'])
+        self.orderers.team = [0,0]
+        self.orderers.player = [0,0,0,0]
+        self.orderers.team1pos = [0,0,0,0]
+        self.orderers.team2pos = [0,0,0,0]
+
+        # a dict to track callers
+        self.callers = namedtuple(
+            'Callers',['team','player','team1pos','team2pos'])
+        self.callers.team = [0,0]
+        self.callers.player = [0,0,0,0]
+        self.callers.team1pos = [0,0,0,0]
+        self.callers.team2pos = [0,0,0,0]
+
+        # a dict to track euchres
+        self.euchres=namedtuple('Euchres',
+            ['team','player','team1pos','team2pos','team1hole','team2hole'])
+        self.euchres.team = [0,0]
+        self.euchres.player = [0,0,0,0]
+        self.euchres.team1pos = [0,0,0,0]
+        self.euchres.team2pos = [0,0,0,0]
+        self.euchres.team1hole = [0,0,0,0,0,0]
+        self.euchres.team2hole = [0,0,0,0,0,0]
 
         # set up the call hand stats dict
         self.chand  = {}
@@ -74,6 +93,18 @@ class Record:
 
 
     ###########################################################################
+    # This routine takes two numbers, x and y, and returns x as a percent
+    # of y, accurate to 2 decimal points.  If y is not > 0, then it returns
+    # 0.  The return value is a floating point number, so it can be used
+    # in further mathematical operations, or directly printed.
+    #
+    def p(self, x, y):
+        if y > 0:
+            return int(10000*x/y)/100
+        return 0.00
+
+
+    ###########################################################################
     # This tracks overall game counts
     #
     def addGame(self):
@@ -98,50 +129,74 @@ class Record:
         # track overall hand information
         self.hcount += 1
 
-        # this computes the position index: 0 is the first person after
-        # the dealer, 1 is the dealer's partner, 2 is the next person,
+        # this computes the player position index: 0 is the first person
+        # after the dealer, 1 is the dealer's partner, 2 is the next person,
         # 3 is the dealer; this allows aggregation of stats based on
         # position relative to the dealer
         pos = player.playerhandle - (player.state['dealer'] + 1)
         if pos < 0: pos += 4
 
         # track the player, team, and position that makes it
-        self.mteam[player.team - 1] += 1
-        self.mplayer[player.playerhandle] += 1
+        self.makers.team[player.team - 1] += 1
+        self.makers.player[player.playerhandle] += 1
         if player.team == 1:
-            self.mpos1[pos] += 1
+            self.makers.team1pos[pos] += 1
         else:
-            self.mpos2[pos] += 1
+            self.makers.team2pos[pos] += 1
 
-        # if the score is negative, then it was a euchre
+        # if it was an order or a call, track that separately: the player
+        # that calls addHand() is the maker, so we just need to check if
+        # the orderer flag is set for this player (strictly, we could compute
+        # the call stats by subtracting the orders from the makes, but it's
+        # simpler and clearer this way)
+        if player.state['orderer'] == player.playerhandle:
+            self.orderers.team[player.team - 1] += 1
+            self.orderers.player[player.playerhandle] += 1
+            if player.team == 1:
+                self.orderers.team1pos[pos] += 1
+            else:
+                self.orderers.team2pos[pos] += 1
+        else:
+            self.callers.team[player.team - 1] += 1
+            self.callers.player[player.playerhandle] += 1
+            if player.team == 1:
+                self.callers.team1pos[pos] += 1
+            else:
+                self.callers.team2pos[pos] += 1
+
+        # if the score is negative, then it was a euchre, so track those stats
         if score < 0:
             self.ecount += 1
-            self.eteam[player.team - 1] += 1
-            self.eplayer[player.playerhandle] += 1
+            self.euchres.team[player.team - 1] += 1
+            self.euchres.player[player.playerhandle] += 1
             if player.team == 1:
-                self.epos1[pos] += 1
+                self.euchres.team1pos[pos] += 1
             else:
-                self.epos2[pos] += 1
+                self.euchres.team2pos[pos] += 1
 
-            # if this was a euchre on an order, we track the %euchre by
-            # hole card: map the hole card to an index and store the count
-            if player.state['orderer'] == player.playerhandle:
-                self.eordered += 1
+            # if this was a euchre on an order (but not a self order, ie. the
+            # ordered was not also the dealer), we track the %euchre by
+            # team and hole card: map the hole card to an index and store
+            # the count in a team-specific tuple
+            if player.state['orderer'] == player.playerhandle and \
+               player.state['dealer'] != player.playerhandle:
+                # only one of 6 cards can be ordered: the 9, 10, J, Q, K, A
+                # (the left can't be ordered since it would be the right)
                 v = player.state['hole'].value
                 if player.team == 1:
-                    if v ==  9: self.ehole1[0] += 1  # 9
-                    if v == 10: self.ehole1[1] += 1  # T
-                    if v == 12: self.ehole1[2] += 1  # Q
-                    if v == 13: self.ehole1[3] += 1  # K
-                    if v == 14: self.ehole1[4] += 1  # A
-                    if v == 11: self.ehole1[5] += 1  # J
+                    if v ==  9: self.euchres.team1hole[0] += 1  # 9
+                    if v == 10: self.euchres.team1hole[1] += 1  # T
+                    if v == 12: self.euchres.team1hole[2] += 1  # Q
+                    if v == 13: self.euchres.team1hole[3] += 1  # K
+                    if v == 14: self.euchres.team1hole[4] += 1  # A
+                    if v == 11: self.euchres.team1hole[5] += 1  # J
                 else:
-                    if v ==  9: self.ehole2[0] += 1  # 9
-                    if v == 10: self.ehole2[1] += 1  # T
-                    if v == 12: self.ehole2[2] += 1  # Q
-                    if v == 13: self.ehole2[3] += 1  # K
-                    if v == 14: self.ehole2[4] += 1  # A
-                    if v == 11: self.ehole2[5] += 1  # J
+                    if v ==  9: self.euchres.team2hole[0] += 1  # 9
+                    if v == 10: self.euchres.team2hole[1] += 1  # T
+                    if v == 12: self.euchres.team2hole[2] += 1  # Q
+                    if v == 13: self.euchres.team2hole[3] += 1  # K
+                    if v == 14: self.euchres.team2hole[4] += 1  # A
+                    if v == 11: self.euchres.team2hole[5] += 1  # J
 
         # remap the hand by calling remap(hand,trump): this returns a string
         # representation of the hand which is independent of the specific
@@ -246,8 +301,6 @@ class Record:
         print("Games/s:    %6.2f" % (gps))
         print("")
 
-        # print the hand stats
-
         # compute hands per second and hands per game
         hps = 0
         if self.start != time.time():
@@ -262,113 +315,89 @@ class Record:
         if numunique > 0:
             avg = self.ccount / numunique
 
-        # compute make by team
-        mteam0 = 0
-        mteam1 = 0
-        if self.hcount > 0:
-            mteam0 = 100*self.mteam[0] / self.hcount
-            mteam1 = 100*self.mteam[1] / self.hcount
-
-        # compute make by player
-        mplayer0 = 0
-        mplayer1 = 0
-        mplayer2 = 0
-        mplayer3 = 0
-        if self.hcount > 0:
-            mplayer0 = 100*self.mplayer[0] / self.hcount
-            mplayer1 = 100*self.mplayer[1] / self.hcount
-            mplayer2 = 100*self.mplayer[2] / self.hcount
-            mplayer3 = 100*self.mplayer[3] / self.hcount
-
-        # compute make by position
-        mpos1 = [0,0,0,0]
-        mpos2 = [0,0,0,0]
-        if self.hcount > 0:
-            mpos1[0] = 100*self.mpos1[0] / self.hcount
-            mpos1[1] = 100*self.mpos1[1] / self.hcount
-            mpos1[2] = 100*self.mpos1[2] / self.hcount
-            mpos1[3] = 100*self.mpos1[3] / self.hcount
-            mpos2[0] = 100*self.mpos2[0] / self.hcount
-            mpos2[1] = 100*self.mpos2[1] / self.hcount
-            mpos2[2] = 100*self.mpos2[2] / self.hcount
-            mpos2[3] = 100*self.mpos2[3] / self.hcount
-
-        # compute % euchres
-        pereuchre = 0
-        if self.hcount > 0:
-            pereuchre = 100*(self.ecount/self.hcount)
-
-        # compute euchres by team
-        eteam0 = 0
-        eteam1 = 0
-        if self.ecount > 0:
-            eteam0 = 100*self.eteam[0] / self.ecount
-            eteam1 = 100*self.eteam[1] / self.ecount
-
-        # compute euchres by player
-        eplayer0 = 0
-        eplayer1 = 0
-        eplayer2 = 0
-        eplayer3 = 0
-        if self.ecount > 0:
-            eplayer0 = 100*self.eplayer[0] / self.ecount
-            eplayer1 = 100*self.eplayer[1] / self.ecount
-            eplayer2 = 100*self.eplayer[2] / self.ecount
-            eplayer3 = 100*self.eplayer[3] / self.ecount
-
-        # compute euchres by position
-        epos1 = [0,0,0,0]
-        epos2 = [0,0,0,0]
-        if self.ecount > 0:
-            epos1[0] = 100*self.epos1[0] / self.ecount
-            epos1[1] = 100*self.epos1[1] / self.ecount
-            epos1[2] = 100*self.epos1[2] / self.ecount
-            epos1[3] = 100*self.epos1[3] / self.ecount
-            epos2[0] = 100*self.epos2[0] / self.ecount
-            epos2[1] = 100*self.epos2[1] / self.ecount
-            epos2[2] = 100*self.epos2[2] / self.ecount
-            epos2[3] = 100*self.epos2[3] / self.ecount
-
-        # compute euchres by hole card
-        ehole1 = [0,0,0,0,0,0]
-        ehole2 = [0,0,0,0,0,0]
-        if self.eordered > 0:
-            ehole1[0] = 100*self.ehole1[0] / self.eordered
-            ehole1[1] = 100*self.ehole1[1] / self.eordered
-            ehole1[2] = 100*self.ehole1[2] / self.eordered
-            ehole1[3] = 100*self.ehole1[3] / self.eordered
-            ehole1[4] = 100*self.ehole1[4] / self.eordered
-            ehole1[5] = 100*self.ehole1[5] / self.eordered
-            ehole2[0] = 100*self.ehole2[0] / self.eordered
-            ehole2[1] = 100*self.ehole2[1] / self.eordered
-            ehole2[2] = 100*self.ehole2[2] / self.eordered
-            ehole2[3] = 100*self.ehole2[3] / self.eordered
-            ehole2[4] = 100*self.ehole2[4] / self.eordered
-            ehole2[5] = 100*self.ehole2[5] / self.eordered
-
+        # print the data
         print("Hands                  Makes")
         print("Total:   %6d        %%by team:   %6.2f / %5.2f"
-            % (self.hcount,mteam0,mteam1) )
+            % ( self.hcount,
+                self.p(self.makers.team[0], self.hcount),
+                self.p(self.makers.team[1], self.hcount)
+            ))
+
         print("Hands/s:    %6.2f     %%by player: %6.2f /%6.2f /%6.2f /%6.2f"
-            % (hps,mplayer0,mplayer1,mplayer2,mplayer3) )
+            % ( hps,
+                self.p(self.makers.player[0], self.hcount),
+                self.p(self.makers.player[1], self.hcount),
+                self.p(self.makers.player[2], self.hcount),
+                self.p(self.makers.player[3], self.hcount),
+            ))
+
         print("Hands/g:    %6.2f     %%by pos t1: %6.2f / %5.2f / %5.2f / %5.2f"
-            % (hpg,mpos1[0],mpos1[1],mpos1[2],mpos1[3]) )
+            % ( hpg,
+                self.p(self.makers.team1pos[0],self.makers.team[0]),
+                self.p(self.makers.team1pos[1],self.makers.team[0]),
+                self.p(self.makers.team1pos[2],self.makers.team[0]),
+                self.p(self.makers.team1pos[3],self.makers.team[0]),
+            ))
+
         print("Unique:  %6d                t2: %6.2f / %5.2f / %5.2f / %5.2f"
-            % (numunique,mpos2[0],mpos2[1],mpos2[2],mpos2[3]) )
-        print("%%cover:     %6.2f     Euchres" % (100*numunique/10422) )
-        print("Max Reps: %5d        %%euchred:  %7.2f" % (self.cmax,pereuchre) )
+            % ( numunique,
+                self.p(self.makers.team2pos[0],self.makers.team[1]),
+                self.p(self.makers.team2pos[1],self.makers.team[1]),
+                self.p(self.makers.team2pos[2],self.makers.team[1]),
+                self.p(self.makers.team2pos[3],self.makers.team[1]),
+            ))
+
+        print("%%cover:     %6.2f     Euchres"
+            % ( 100*numunique/10422) )
+
+        print("Max Reps: %5d        %%euchred:  %7.2f"
+            % ( self.cmax, self.p(self.ecount,self.hcount)) )
+
         print("Avg Reps:   %6.2f     %%by team:  %7.2f / %5.2f"
-            % (avg,eteam0,eteam1))
+            % ( avg,
+                self.p(self.euchres.team[0],self.makers.team[0]),
+                self.p(self.euchres.team[1],self.makers.team[1]),
+            ))
+
         print("                       %%by player: %6.2f /%6.2f /%6.2f /%6.2f"
-            % (eplayer0,eplayer1,eplayer2,eplayer3))
+            % ( self.p(self.euchres.player[0],self.makers.player[0]),
+                self.p(self.euchres.player[1],self.makers.player[1]),
+                self.p(self.euchres.player[2],self.makers.player[2]),
+                self.p(self.euchres.player[3],self.makers.player[3]),
+            ))
+
         print("                       %%by pos t1: %6.2f /%6.2f /%6.2f /%6.2f"
-            % (epos1[0],epos1[1],epos1[2],epos1[3]))
+            % ( self.p(self.euchres.team1pos[0],self.makers.team1pos[0]),
+                self.p(self.euchres.team1pos[1],self.makers.team1pos[1]),
+                self.p(self.euchres.team1pos[2],self.makers.team1pos[2]),
+                self.p(self.euchres.team1pos[3],self.makers.team1pos[3]),
+            ))
+
         print("                               t2: %6.2f /%6.2f /%6.2f /%6.2f"
-            % (epos2[0],epos2[1],epos2[2],epos2[3]))
+            % ( self.p(self.euchres.team2pos[0],self.makers.team2pos[0]),
+                self.p(self.euchres.team2pos[1],self.makers.team2pos[1]),
+                self.p(self.euchres.team2pos[2],self.makers.team2pos[2]),
+                self.p(self.euchres.team2pos[3],self.makers.team2pos[3]),
+            ))
+
         print("                       %%by hole t1: %5.2f /%6.2f /%6.2f /%6.2f /%6.2f /%6.2f"
-            % (ehole1[0],ehole1[1],ehole1[2],ehole1[3],ehole1[4],ehole1[5]))
+            % ( self.p(self.euchres.team1hole[0],self.orderers.team[0]),
+                self.p(self.euchres.team1hole[1],self.orderers.team[0]),
+                self.p(self.euchres.team1hole[2],self.orderers.team[0]),
+                self.p(self.euchres.team1hole[3],self.orderers.team[0]),
+                self.p(self.euchres.team1hole[4],self.orderers.team[0]),
+                self.p(self.euchres.team1hole[5],self.orderers.team[0]),
+            ))
+
         print("                                t2: %5.2f /%6.2f /%6.2f /%6.2f /%6.2f /%6.2f"
-            % (ehole2[0],ehole2[1],ehole2[2],ehole2[3],ehole2[4],ehole2[5]))
+            % ( self.p(self.euchres.team2hole[0],self.orderers.team[1]),
+                self.p(self.euchres.team2hole[1],self.orderers.team[1]),
+                self.p(self.euchres.team2hole[2],self.orderers.team[1]),
+                self.p(self.euchres.team2hole[3],self.orderers.team[1]),
+                self.p(self.euchres.team2hole[4],self.orderers.team[1]),
+                self.p(self.euchres.team2hole[5],self.orderers.team[1]),
+            ))
+
         print("")
         
         # print the follow stats
