@@ -43,6 +43,13 @@ parser.add_option("-q", "--quiet",
                   action="store_true",
                   help="don't print anything to stdout")
 
+# add an option to eliminate the log file entirely
+parser.add_option("--nolog",
+                  dest="nolog",
+                  default=False,
+                  action="store_true",
+                  help="don't create log file")
+
 # add an option to enable stats output: this shows a live view of the data
 # being gathered; this automatically implies -q
 parser.add_option("--stats",
@@ -115,9 +122,14 @@ if not options.quiet and not options.stats:
     logger.addHandler(ch)
 
 # make the logfile handler and add it
-fh = logging.FileHandler("peuchre.log",mode="a+")
-fh.setFormatter(fhfmt)
-logger.addHandler(fh)
+if not options.nolog:
+    fh = logging.FileHandler("peuchre.log",mode="a+")
+    fh.setFormatter(fhfmt)
+    logger.addHandler(fh)
+else:
+    fh = logging.FileHandler("/dev/null",mode="a+")
+    fh.setFormatter(fhfmt)
+    logger.addHandler(fh)
 
 
 ###########################################################################
