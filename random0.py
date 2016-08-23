@@ -35,23 +35,40 @@ class Player(EuchrePlayer):
 
 
     ###########################################################################
-    # this routine returns either ORDER, ORDERALONE, or ORDERPASS, depending
-    # on what the client wishes to do with the hole card; this routine returns
-    # ORDER with a probability of 1/4, PASS otherwise
+    # This routine returns either ORDER, ORDERALONE, or ORDERPASS, depending
+    # on what the client wishes to do with the hole card.  The goal with the
+    # random client is that trump will be ordered 50% of the time (and called
+    # the other 50% of the time).  To accomplish this, the probability of
+    # each (non-dealer-partner) player calling is 15.219%.
+    #
+    # This magic number is the real solution to this equation:
+    #   (1-x)(1-x)(1-2x) = 0.5
+    # This represents the probability each of 3 players must satisfy
+    # such that their individual probability of calling (by team) is equal,
+    # but the overall probability that someone will order is 50%.
+    #
+    # I've never tested this with aloneonorder false, but it should still work.
     #
     def decideOrderPass(self):
-        # randomly choose to order with 25% probability
-        op = random.choice(["ORDER","ORDERPASS","ORDERPASS","ORDERPASS"])
+        # randomly choose to order with 15.219% probability
+        op = "ORDERPASS"
+        if random.random() < 0.15219:
+            op = "ORDER"
 
         # if aloneonorder is true, and we're the dealer's partner, we never
         # order, since it will force a go alone
         if self.state['aloneonorder'] == 1:
             if self.team == self.state[self.state['dealer']]['team']:
                 op = "ORDERPASS"
-            # but if I'm the dealer, we order with 50% probability, to
-            # make up for my partner never making it
+            # to make up for the imbalance caused by the dealer's partner
+            # never ordering, the dealer will order with twice the probability
+            # of the dealer-opposing team members: thus there is the same
+            # probability that the dealer's team will order as the non-dealer's
+            # team, it's just that the ordering is only ever done by the dealer
             if self.playerhandle == self.state['dealer']:
-                op = random.choice(["ORDER","ORDERPASS"])
+                op = "ORDERPASS"
+                if random.random() < (0.15219*2):
+                    op = "ORDER"
         
         info("")
         info(self.id+"cards: " + self.printHand(self.hand))
