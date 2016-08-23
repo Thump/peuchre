@@ -14,6 +14,7 @@
 import os
 import time
 import sys
+import curses
 
 from card import Card
 from collections import namedtuple
@@ -28,29 +29,33 @@ class Record:
         self.start = time.time()
 
         # track total number of games, hands, and euchres
-        self.gcount = 0
-        self.hcount = 0
-        self.ecount = 0
+        self.counts = namedtuple('Counts',
+            ['games','hands','orders','calls','euchres'])
+        self.counts.games = 0
+        self.counts.hands = 0
+        self.counts.orders = 0
+        self.counts.calls = 0
+        self.counts.euchres = 0
 
         # a dict to track makers
-        self.makers = namedtuple(
-            'Makers',['team','player','team1pos','team2pos'])
+        self.makers = namedtuple('Makers',
+            ['team', 'player', 'team1pos', 'team2pos'])
         self.makers.team = [0,0]
         self.makers.player = [0,0,0,0]
         self.makers.team1pos = [0,0,0,0]
         self.makers.team2pos = [0,0,0,0]
 
         # a dict to track orderers
-        self.orderers = namedtuple(
-            'Orderers',['team','player','team1pos','team2pos'])
+        self.orderers = namedtuple('Orderers',
+            ['team', 'player', 'team1pos', 'team2pos'])
         self.orderers.team = [0,0]
         self.orderers.player = [0,0,0,0]
         self.orderers.team1pos = [0,0,0,0]
         self.orderers.team2pos = [0,0,0,0]
 
         # a dict to track callers
-        self.callers = namedtuple(
-            'Callers',['team','player','team1pos','team2pos'])
+        self.callers = namedtuple('Callers',
+            ['team', 'player', 'team1pos', 'team2pos'])
         self.callers.team = [0,0]
         self.callers.player = [0,0,0,0]
         self.callers.team1pos = [0,0,0,0]
@@ -58,7 +63,7 @@ class Record:
 
         # a dict to track euchres
         self.euchres=namedtuple('Euchres',
-            ['team','player','team1pos','team2pos','team1hole','team2hole'])
+            ['team', 'player', 'team1pos', 'team2pos', 'team1hole','team2hole'])
         self.euchres.team = [0,0]
         self.euchres.player = [0,0,0,0]
         self.euchres.team1pos = [0,0,0,0]
@@ -91,6 +96,48 @@ class Record:
         if "team2" in kwargs:
             self.team2 = kwargs['team2']
 
+        # if we were passed stats, init the object value
+        self.stats = False
+        if "stats" in kwargs:
+            self.stats = kwargs['stats']
+
+        # if stats is enabled, initialize curses, so we can have a bit more
+        # control of our output
+        if self.stats:
+            # initialize curses and get current screen size
+            curses.initscr()
+            width = curses.COLS
+            height = curses.LINES
+
+            # if the screen isn't at least 90x30, curses will abort, so check
+            if width < 90 or height < 30:
+                sys.stderr.write("\n")
+                sys.stderr.write("Screen must be at least 90x30 to show stats")
+                sys.stderr.write("\n")
+                sys.stderr.write("\n")
+                sys.exit(1)
+
+            # these are some variables to make adjusting the col sizes easier
+            headerx = width ; headery = 3
+            col1x   = 25    ; col1y   = 24
+            col2x   = 65    ; col2y   = 24
+            footerx = width ; footery = 3
+
+            # make the curses calls to create the windows
+            self.header = curses.newwin(headery,headerx,0,0)
+            self.col1   = curses.newwin(col1y,col1x,headery,0)
+            self.col2   = curses.newwin(col2y,col2x,headery,col1x)
+            self.footer = curses.newwin(footery,footerx,headery+col1y,0)
+
+
+    ###########################################################################
+    # This routine un-inits the curses interface (if enabled) so that we
+    # don't leave the screen borked.
+    #
+    def __del__(self):
+        if self.stats:
+            curses.endwin()  
+
 
     ###########################################################################
     # This routine takes two numbers, x and y, and returns x as a percent
@@ -108,7 +155,7 @@ class Record:
     # This tracks overall game counts
     #
     def addGame(self):
-        self.gcount += 1
+        self.counts.games += 1
 
         # write if it's time to
         self.write()
@@ -127,7 +174,7 @@ class Record:
     #
     def addHand(self, hand, trump, score, player):
         # track overall hand information
-        self.hcount += 1
+        self.counts.hands += 1
 
         # this computes the player position index: 0 is the first person
         # after the dealer, 1 is the dealer's partner, 2 is the next person,
@@ -150,6 +197,7 @@ class Record:
         # the call stats by subtracting the orders from the makes, but it's
         # simpler and clearer this way)
         if player.state['orderer'] == player.playerhandle:
+            self.counts.orders += 1
             self.orderers.team[player.team - 1] += 1
             self.orderers.player[player.playerhandle] += 1
             if player.team == 1:
@@ -157,6 +205,7 @@ class Record:
             else:
                 self.orderers.team2pos[pos] += 1
         else:
+            self.counts.calls += 1
             self.callers.team[player.team - 1] += 1
             self.callers.player[player.playerhandle] += 1
             if player.team == 1:
@@ -166,7 +215,7 @@ class Record:
 
         # if the score is negative, then it was a euchre, so track those stats
         if score < 0:
-            self.ecount += 1
+            self.counts.euchres += 1
             self.euchres.team[player.team - 1] += 1
             self.euchres.player[player.playerhandle] += 1
             if player.team == 1:
@@ -273,41 +322,33 @@ class Record:
 
 
     ########################################################################### 
-    # This prints some high level info for the record
+    # This prints some high level info for the record using curses
     #
     def print(self,**kwargs):
         # clear the screen to start
         if 'clear' not in kwargs \
            or ('clear' in kwargs and kwargs['clear'] != False ):
             #os.system('clear')
-            print("[H[2J")
+            #print("[H[2J")
+            self.header.erase()
+            self.col1.erase()
+            self.col2.erase()
+            self.footer.erase()
+
+        # pre-calculate some data
 
         # compute the run time
         t = time.gmtime(time.time() - self.start)
         runtime = "%dd %02d:%02d:%02d" \
             % (t.tm_mday-1,t.tm_hour,t.tm_min,t.tm_sec)
 
-        # a header
-        print("Peuchre Stats ( %s )   Team 1: %s   Team 2: %s"
-            % (runtime,self.team1,self.team2))
-        print("")
-
-        # print the game stats
-        gps = 0
-        if self.start != time.time():
-            gps = self.gcount / (time.time() - self.start)
-        print("Games")
-        print("Total:   %6d" % (self.gcount))
-        print("Games/s:    %6.2f" % (gps))
-        print("")
-
         # compute hands per second and hands per game
         hps = 0
         if self.start != time.time():
-            hps = self.hcount / (time.time() - self.start)
+            hps = self.counts.hands / (time.time() - self.start)
         hpg = 0
-        if self.gcount > 0:
-            hpg = self.hcount / self.gcount
+        if self.counts.games > 0:
+            hpg = self.counts.hands / self.counts.games
 
         # compute the % coverage of remapped hands
         avg = 0
@@ -315,72 +356,134 @@ class Record:
         if numunique > 0:
             avg = self.ccount / numunique
 
+        # compute the games per second
+        gps = 0
+        if self.start != time.time():
+            gps = self.counts.games / (time.time() - self.start)
+
         # print the data
-        print("Hands                  Makes")
-        print("Total:   %6d        %%by team:   %6.2f / %5.2f"
-            % ( self.hcount,
-                self.p(self.makers.team[0], self.hcount),
-                self.p(self.makers.team[1], self.hcount)
+
+        # print the screen header
+        self.header.addstr("\n")
+        self.header.addstr("Peuchre Stats ( %s )   Team 1: %s   Team 2: %s"
+            % (runtime,self.team1,self.team2))
+
+        # print the game stats
+        self.col1.addstr("Games\n")
+        self.col1.addstr("  Total   : %5d\n" % (self.counts.games))
+        self.col1.addstr("  Games/s :   %6.2f\n" % (gps))
+        self.col1.addstr("\n")
+
+        # print the basic hand data
+        self.col1.addstr("Hands\n")
+        self.col1.addstr("  Total   : %5d\n" % ( self.counts.hands, ) )
+        self.col1.addstr("  Hands/s :   %6.2f\n" % ( hps, ) )
+        self.col1.addstr("  Hands/g :   %6.2f\n" % ( hpg, ) )
+        self.col1.addstr("  Unique  : %5d\n" % ( numunique, ) )
+        self.col1.addstr("  %%cover  :   %6.2f\n" % ( 100*numunique/10422 ) )
+        self.col1.addstr("  Max Reps: %5d\n" % ( self.cmax, ) )
+        self.col1.addstr("  Avg Reps:   %6.2f\n" % ( avg, ) )
+
+        # print the make stats
+        self.col2.addstr("Makes\n")
+        self.col2.addstr("  Order/Call: %5.2f / %5.2f\n"
+            % ( self.p(self.counts.orders, self.counts.hands),
+                self.p(self.counts.calls, self.counts.hands)
             ))
 
-        print("Hands/s:    %6.2f     %%by player: %6.2f /%6.2f /%6.2f /%6.2f"
-            % ( hps,
-                self.p(self.makers.player[0], self.hcount),
-                self.p(self.makers.player[1], self.hcount),
-                self.p(self.makers.player[2], self.hcount),
-                self.p(self.makers.player[3], self.hcount),
+        # print the order stats
+        self.col2.addstr("\n")
+        self.col2.addstr("Orders\n")
+        self.col2.addstr("  %%by team   : %5.2f / %5.2f\n"
+            % ( self.p(self.orderers.team[0], self.counts.orders),
+                self.p(self.orderers.team[1], self.counts.orders)
             ))
 
-        print("Hands/g:    %6.2f     %%by pos t1: %6.2f / %5.2f / %5.2f / %5.2f"
-            % ( hpg,
-                self.p(self.makers.team1pos[0],self.makers.team[0]),
-                self.p(self.makers.team1pos[1],self.makers.team[0]),
-                self.p(self.makers.team1pos[2],self.makers.team[0]),
-                self.p(self.makers.team1pos[3],self.makers.team[0]),
+        self.col2.addstr("  %%by player : %5.2f /%6.2f /%6.2f /%6.2f\n"
+            % ( self.p(self.orderers.player[0], self.counts.orders),
+                self.p(self.orderers.player[1], self.counts.orders),
+                self.p(self.orderers.player[2], self.counts.orders),
+                self.p(self.orderers.player[3], self.counts.orders),
             ))
 
-        print("Unique:  %6d                t2: %6.2f / %5.2f / %5.2f / %5.2f"
-            % ( numunique,
-                self.p(self.makers.team2pos[0],self.makers.team[1]),
-                self.p(self.makers.team2pos[1],self.makers.team[1]),
-                self.p(self.makers.team2pos[2],self.makers.team[1]),
-                self.p(self.makers.team2pos[3],self.makers.team[1]),
+        self.col2.addstr("  %%by pos t1 : %5.2f / %5.2f / %5.2f / %5.2f\n"
+            % ( self.p(self.orderers.team1pos[0],self.orderers.team[0]),
+                self.p(self.orderers.team1pos[1],self.orderers.team[0]),
+                self.p(self.orderers.team1pos[2],self.orderers.team[0]),
+                self.p(self.orderers.team1pos[3],self.orderers.team[0]),
             ))
 
-        print("%%cover:     %6.2f     Euchres"
-            % ( 100*numunique/10422) )
+        self.col2.addstr("          t2 : %5.2f / %5.2f / %5.2f / %5.2f\n"
+            % ( self.p(self.orderers.team2pos[0],self.orderers.team[1]),
+                self.p(self.orderers.team2pos[1],self.orderers.team[1]),
+                self.p(self.orderers.team2pos[2],self.orderers.team[1]),
+                self.p(self.orderers.team2pos[3],self.orderers.team[1]),
+            ))
 
-        print("Max Reps: %5d        %%euchred:  %7.2f"
-            % ( self.cmax, self.p(self.ecount,self.hcount)) )
+        # print the call stats
+        self.col2.addstr("\n")
+        self.col2.addstr("Calls\n")
+        self.col2.addstr("  %%by team   : %5.2f / %5.2f\n"
+            % ( self.p(self.callers.team[0], self.counts.hands),
+                self.p(self.callers.team[1], self.counts.hands)
+            ))
 
-        print("Avg Reps:   %6.2f     %%by team:  %7.2f / %5.2f"
-            % ( avg,
-                self.p(self.euchres.team[0],self.makers.team[0]),
+        self.col2.addstr("  %%by player : %5.2f /%6.2f /%6.2f /%6.2f\n"
+            % ( self.p(self.callers.player[0], self.counts.hands),
+                self.p(self.callers.player[1], self.counts.hands),
+                self.p(self.callers.player[2], self.counts.hands),
+                self.p(self.callers.player[3], self.counts.hands),
+            ))
+
+        self.col2.addstr("  %%by pos t1 : %5.2f / %5.2f / %5.2f / %5.2f\n"
+            % ( self.p(self.callers.team1pos[0],self.callers.team[0]),
+                self.p(self.callers.team1pos[1],self.callers.team[0]),
+                self.p(self.callers.team1pos[2],self.callers.team[0]),
+                self.p(self.callers.team1pos[3],self.callers.team[0]),
+            ))
+
+        self.col2.addstr("          t2 : %5.2f / %5.2f / %5.2f / %5.2f\n"
+            % ( self.p(self.callers.team2pos[0],self.callers.team[1]),
+                self.p(self.callers.team2pos[1],self.callers.team[1]),
+                self.p(self.callers.team2pos[2],self.callers.team[1]),
+                self.p(self.callers.team2pos[3],self.callers.team[1]),
+            ))
+
+        # print the euchre stats
+        self.col2.addstr("\n")
+        self.col2.addstr("Euchres\n")
+
+        self.col2.addstr("  %%euchred   : %5.2f\n"
+            % ( self.p(self.counts.euchres,self.counts.hands)) )
+
+        self.col2.addstr("  %%by team   : %5.2f / %5.2f\n"
+            % ( self.p(self.euchres.team[0],self.makers.team[0]),
                 self.p(self.euchres.team[1],self.makers.team[1]),
             ))
 
-        print("                       %%by player: %6.2f /%6.2f /%6.2f /%6.2f"
+        self.col2.addstr("  %%by player : %5.2f /%6.2f /%6.2f /%6.2f\n"
             % ( self.p(self.euchres.player[0],self.makers.player[0]),
                 self.p(self.euchres.player[1],self.makers.player[1]),
                 self.p(self.euchres.player[2],self.makers.player[2]),
                 self.p(self.euchres.player[3],self.makers.player[3]),
             ))
 
-        print("                       %%by pos t1: %6.2f /%6.2f /%6.2f /%6.2f"
+        self.col2.addstr("  %%by pos t1 : %5.2f /%6.2f /%6.2f /%6.2f\n"
             % ( self.p(self.euchres.team1pos[0],self.makers.team1pos[0]),
                 self.p(self.euchres.team1pos[1],self.makers.team1pos[1]),
                 self.p(self.euchres.team1pos[2],self.makers.team1pos[2]),
                 self.p(self.euchres.team1pos[3],self.makers.team1pos[3]),
             ))
 
-        print("                               t2: %6.2f /%6.2f /%6.2f /%6.2f"
+        self.col2.addstr("          t2 : %5.2f /%6.2f /%6.2f /%6.2f\n"
             % ( self.p(self.euchres.team2pos[0],self.makers.team2pos[0]),
                 self.p(self.euchres.team2pos[1],self.makers.team2pos[1]),
                 self.p(self.euchres.team2pos[2],self.makers.team2pos[2]),
                 self.p(self.euchres.team2pos[3],self.makers.team2pos[3]),
             ))
 
-        print("                       %%by hole t1: %5.2f /%6.2f /%6.2f /%6.2f /%6.2f /%6.2f"
+        self.col2.addstr(
+            "  %%by hole t1: %5.2f /%6.2f /%6.2f /%6.2f /%6.2f /%6.2f\n"
             % ( self.p(self.euchres.team1hole[0],self.orderers.team[0]),
                 self.p(self.euchres.team1hole[1],self.orderers.team[0]),
                 self.p(self.euchres.team1hole[2],self.orderers.team[0]),
@@ -389,7 +492,8 @@ class Record:
                 self.p(self.euchres.team1hole[5],self.orderers.team[0]),
             ))
 
-        print("                                t2: %5.2f /%6.2f /%6.2f /%6.2f /%6.2f /%6.2f"
+        self.col2.addstr(
+            "           t2: %5.2f /%6.2f /%6.2f /%6.2f /%6.2f /%6.2f\n"
             % ( self.p(self.euchres.team2hole[0],self.orderers.team[1]),
                 self.p(self.euchres.team2hole[1],self.orderers.team[1]),
                 self.p(self.euchres.team2hole[2],self.orderers.team[1]),
@@ -398,17 +502,22 @@ class Record:
                 self.p(self.euchres.team2hole[5],self.orderers.team[1]),
             ))
 
-        print("")
-        
         # print the follow stats
         avg = {}
         for i in (1,2,3,4,5):
             avg[i] = 0
             if 'count' in self.follow[i] and self.follow[i]['count'] > 0:
                 avg[i] = self.follow[i]['sum'] / self.follow[i]['count']
-        print("Follow Ratio (by trick)")
-        print("%4.2f / %4.2f / %4.2f / %4.2f / %4.2f"
+        self.footer.addstr("Follow Ratio (by trick)\n")
+        self.footer.addstr("%4.2f / %4.2f / %4.2f / %4.2f / %4.2f\n"
             % (avg[1],avg[2],avg[3],avg[4],avg[5]) )
+
+        # update the screen
+        self.header.noutrefresh()
+        self.col1.noutrefresh()
+        self.col2.noutrefresh()
+        self.footer.noutrefresh()
+        curses.doupdate()
 
         # write if it's time to
         self.write()
