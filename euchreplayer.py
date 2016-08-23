@@ -288,8 +288,11 @@ class EuchrePlayer:
     def sendJoin(self):
         # create the socket for connection to the server: we'll need this
         # for use in the rest of the object
-        self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.s.connect((self.server,self.port))
+        try:
+            self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.s.connect((self.server,self.port))
+        except ConnectionRefusedError:
+            return False
 
         # get the length of the name and use that length in the format strign
         namelen = len(self.name)
