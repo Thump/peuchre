@@ -386,7 +386,7 @@ class Record:
 
         # print the make stats
         self.col2.addstr("Makes\n")
-        self.col2.addstr("  Order/Call: %5.2f / %5.2f\n"
+        self.col2.addstr("  Order/Call : %5.2f / %5.2f\n"
             % ( self.p(self.counts.orders, self.counts.hands),
                 self.p(self.counts.calls, self.counts.hands)
             ))
@@ -407,46 +407,46 @@ class Record:
             ))
 
         self.col2.addstr("  %%by pos t1 : %5.2f / %5.2f / %5.2f / %5.2f\n"
-            % ( self.p(self.orderers.team1pos[0],self.orderers.team[0]),
-                self.p(self.orderers.team1pos[1],self.orderers.team[0]),
-                self.p(self.orderers.team1pos[2],self.orderers.team[0]),
-                self.p(self.orderers.team1pos[3],self.orderers.team[0]),
+            % ( self.p(self.orderers.team1pos[0],self.counts.orders),
+                self.p(self.orderers.team1pos[1],self.counts.orders),
+                self.p(self.orderers.team1pos[2],self.counts.orders),
+                self.p(self.orderers.team1pos[3],self.counts.orders),
             ))
 
         self.col2.addstr("          t2 : %5.2f / %5.2f / %5.2f / %5.2f\n"
-            % ( self.p(self.orderers.team2pos[0],self.orderers.team[1]),
-                self.p(self.orderers.team2pos[1],self.orderers.team[1]),
-                self.p(self.orderers.team2pos[2],self.orderers.team[1]),
-                self.p(self.orderers.team2pos[3],self.orderers.team[1]),
+            % ( self.p(self.orderers.team2pos[0],self.counts.orders),
+                self.p(self.orderers.team2pos[1],self.counts.orders),
+                self.p(self.orderers.team2pos[2],self.counts.orders),
+                self.p(self.orderers.team2pos[3],self.counts.orders),
             ))
 
         # print the call stats
         self.col2.addstr("\n")
         self.col2.addstr("Calls\n")
         self.col2.addstr("  %%by team   : %5.2f / %5.2f\n"
-            % ( self.p(self.callers.team[0], self.counts.hands),
-                self.p(self.callers.team[1], self.counts.hands)
+            % ( self.p(self.callers.team[0], self.counts.calls),
+                self.p(self.callers.team[1], self.counts.calls)
             ))
 
         self.col2.addstr("  %%by player : %5.2f /%6.2f /%6.2f /%6.2f\n"
-            % ( self.p(self.callers.player[0], self.counts.hands),
-                self.p(self.callers.player[1], self.counts.hands),
-                self.p(self.callers.player[2], self.counts.hands),
-                self.p(self.callers.player[3], self.counts.hands),
+            % ( self.p(self.callers.player[0], self.counts.calls),
+                self.p(self.callers.player[1], self.counts.calls),
+                self.p(self.callers.player[2], self.counts.calls),
+                self.p(self.callers.player[3], self.counts.calls),
             ))
 
         self.col2.addstr("  %%by pos t1 : %5.2f / %5.2f / %5.2f / %5.2f\n"
-            % ( self.p(self.callers.team1pos[0],self.callers.team[0]),
-                self.p(self.callers.team1pos[1],self.callers.team[0]),
-                self.p(self.callers.team1pos[2],self.callers.team[0]),
-                self.p(self.callers.team1pos[3],self.callers.team[0]),
+            % ( self.p(self.callers.team1pos[0],self.counts.calls),
+                self.p(self.callers.team1pos[1],self.counts.calls),
+                self.p(self.callers.team1pos[2],self.counts.calls),
+                self.p(self.callers.team1pos[3],self.counts.calls),
             ))
 
         self.col2.addstr("          t2 : %5.2f / %5.2f / %5.2f / %5.2f\n"
-            % ( self.p(self.callers.team2pos[0],self.callers.team[1]),
-                self.p(self.callers.team2pos[1],self.callers.team[1]),
-                self.p(self.callers.team2pos[2],self.callers.team[1]),
-                self.p(self.callers.team2pos[3],self.callers.team[1]),
+            % ( self.p(self.callers.team2pos[0],self.counts.calls),
+                self.p(self.callers.team2pos[1],self.counts.calls),
+                self.p(self.callers.team2pos[2],self.counts.calls),
+                self.p(self.callers.team2pos[3],self.counts.calls),
             ))
 
         # print the euchre stats
