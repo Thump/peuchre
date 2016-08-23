@@ -128,7 +128,11 @@ info("This is peuchre")
 # create a Record object: we'll pass this to the clients and they'll use
 # it to record data about their hands; we provide the name of the team
 # algorithms so Record can include it in the status output
-record = Record(team1=options.team1,team2=options.team2)
+record = Record(
+    team1=options.team1,
+    team2=options.team2,
+    stats=options.stats,
+)
 
 # create a lock structure: we'll use this to control access to the record
 # object by the multiple game threads
